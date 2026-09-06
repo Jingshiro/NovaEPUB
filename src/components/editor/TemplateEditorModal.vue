@@ -48,7 +48,7 @@
         </div>
         <div>
           <p class="text-xs text-ink-placeholder mb-1">颜色</p>
-          <input v-model="form.color" class="input" placeholder="#1E1E1E" />
+          <input v-model="form.color" class="input" placeholder="#37352F" />
         </div>
         <div>
           <p class="text-xs text-ink-placeholder mb-1">对齐</p>
@@ -61,7 +61,7 @@
         </div>
         <div>
           <p class="text-xs text-ink-placeholder mb-1">背景</p>
-          <input v-model="form.background" class="input" placeholder="#FBFBFB" />
+          <input v-model="form.background" class="input" placeholder="#F7F6F3" />
         </div>
         <div>
           <p class="text-xs text-ink-placeholder mb-1">内边距</p>
@@ -73,7 +73,7 @@
         </div>
         <div>
           <p class="text-xs text-ink-placeholder mb-1">左边框</p>
-          <input v-model="form.borderLeft" class="input" placeholder="3px solid #D4A373" />
+          <input v-model="form.borderLeft" class="input" placeholder="3px solid #E9E8E4" />
         </div>
         <div>
           <p class="text-xs text-ink-placeholder mb-1">行高</p>
@@ -92,7 +92,7 @@
       <div v-else>
         <p class="text-xs text-ink-placeholder mb-1">用 <code class="rounded bg-bg-muted px-1">$1</code> 占位符标记选中内容插入位置</p>
         <textarea v-model="form.html" rows="8" class="input font-mono"
-          placeholder='<blockquote style="border-left:4px solid #D4A373;padding:0.6em 1em;">$1</blockquote>'></textarea>
+          placeholder='<blockquote style="border-left:4px solid #E9E8E4;padding:0.6em 1em;">$1</blockquote>'></textarea>
       </div>
 
       <!-- 实时预览 -->

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "轻墨 (LightInk) - 像写 Notion 文档一样制作 EPUB 电子书",
+  "description": "NovaEpub - 轻量、可视化的 EPUB 编辑器",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

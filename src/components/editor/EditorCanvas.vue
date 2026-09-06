@@ -217,7 +217,7 @@ onBeforeUnmount(() => {
 .prose {
   font-size: 1rem;
   line-height: 1.8;
-  color: #1e1e1e;
+  color: #37352f;
 }
 .prose p {
   margin: 0 0 1em 0;
@@ -238,11 +238,11 @@ onBeforeUnmount(() => {
   margin: 1em 0 0.5em;
 }
 .prose blockquote {
-  border-left: 3px solid #d4a373;
+  border-left: 3px solid #e9e8e4;
   margin: 1em 0;
   padding: 0.5em 1em;
-  color: #6b6b6b;
-  background: #fbfbfb;
+  color: #787774;
+  background: #f7f6f3;
 }
 .prose ul,
 .prose ol {

@@ -116,11 +116,11 @@ ${content}
 
 /** 构建默认阅读 CSS，可追加额外样式。 */
 export function buildStylesCss(extra = '') {
-  return `/* 轻墨 LightInk 默认阅读样式 */
+  return `/* NovaEpub 默认阅读样式 */
 body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'PingFang SC', sans-serif;
   line-height: 1.8;
-  color: #1E1E1E;
+  color: #37352F;
   margin: 0;
   padding: 0 5% 6% 5%;
   font-size: 1em;
@@ -135,11 +135,11 @@ body {
 .chapter-body h2 { font-size: 1.5em; }
 .chapter-body h3 { font-size: 1.25em; }
 .chapter-body blockquote {
-  border-left: 3px solid #D4A373;
+  border-left: 3px solid #E9E8E4;
   margin: 1em 0;
   padding: 0.5em 1em;
-  color: #6B6B6B;
-  background: #FBFBFB;
+  color: #787774;
+  background: #F7F6F3;
 }
 .chapter-body img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
 .chapter-body ul, .chapter-body ol { margin: 0 0 1em 0; padding-left: 1.5em; }

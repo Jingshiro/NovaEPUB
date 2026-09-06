@@ -4,24 +4,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 设计系统：杜绝蓝紫，主色为朱砂红/陶土色
+        // 设计系统：参考 Notion 的素净中性配色（杜绝蓝紫/刺眼红）
         bg: {
-          DEFAULT: '#FBFBFB',
+          DEFAULT: '#FFFFFF',
           card: '#FFFFFF',
-          muted: '#F4F4F4',
+          muted: '#F7F6F3',
         },
         ink: {
-          DEFAULT: '#1E1E1E',
-          secondary: '#6B6B6B',
-          placeholder: '#9B9B9B',
+          DEFAULT: '#37352F',
+          secondary: '#787774',
+          placeholder: '#9F9F9B',
         },
         accent: {
-          DEFAULT: '#E16259',   // 主色调：朱砂红
-          soft: '#D4A373',      // 辅助色：暖驼色
-          hover: '#C94B42',     // 悬浮加深 10%
+          DEFAULT: '#37352F',   // 主色：炭黑/近黑，用于按钮与重要图标
+          soft: '#E9E8E4',      // 辅助：浅暖灰，用于高亮/选中
+          hover: '#2B2A26',     // 悬浮加深
         },
-        line: '#E8E8E8',
-        danger: '#C84E4E',
+        line: '#E9E8E4',
+        danger: '#D44C47',
       },
       fontFamily: {
         sans: [

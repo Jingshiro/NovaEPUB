@@ -3,8 +3,8 @@
     <!-- 左侧书目列表 -->
     <aside class="w-64 shrink-0 flex flex-col border-r border-line bg-bg-muted">
       <div class="px-4 py-4 flex items-center gap-2">
-        <span class="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white font-bold">墨</span>
-        <h1 class="text-sm font-semibold text-ink">轻墨</h1>
+        <span class="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white font-bold">N</span>
+        <h1 class="text-sm font-semibold text-ink">NovaEpub</h1>
       </div>
       <div class="px-4 pb-2 text-xs text-ink-placeholder">我的书架</div>
       <nav class="flex-1 overflow-y-auto px-2 pb-4 space-y-1">
@@ -41,8 +41,6 @@
     <!-- 中央区域 -->
     <main class="flex-1 overflow-y-auto" :class="dragging ? 'bg-accent/5' : ''">
       <div class="mx-auto max-w-3xl px-8 py-12">
-        <p class="text-xs text-ink-placeholder mb-6">像写 Notion 文档一样制作 EPUB</p>
-
         <!-- 新建 / 导入大卡片 -->
         <div
           class="card flex min-h-56 cursor-pointer flex-col items-center justify-center gap-4 border-2 border-dashed !border-line py-12 text-center transition-colors hover:!border-accent hover:bg-bg-muted"

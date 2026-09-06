@@ -31,7 +31,7 @@ describe('LibraryView', () => {
     const wrapper = mount(LibraryView, { global: { plugins: [pinia, router] } })
     expect(wrapper.text()).toContain('我的书架')
     expect(wrapper.text()).toContain('新建 EPUB')
-    expect(wrapper.text()).toContain('像写 Notion 文档一样制作 EPUB')
+    expect(wrapper.text()).toContain('NovaEpub')
   })
 
   it('点击书目可进入编辑器路由', async () => {
