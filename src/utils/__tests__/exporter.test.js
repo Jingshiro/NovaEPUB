@@ -48,9 +48,9 @@ describe('OPF / NCX 生成', () => {
     expect(xml).toContain('src="chapter-2.xhtml"')
   })
 
-  it('章节 XHTML 内嵌标题与内容', () => {
+  it('章节 XHTML 不再强制插入章节标题，避免与正文重复', () => {
     const xml = buildChapterXhtml(book.chapters[0], book, 0)
-    expect(xml).toContain('<h1 class="chapter-title">第一章</h1>')
+    expect(xml).not.toContain('<h1 class="chapter-title">')
     expect(xml).toContain('<p>你好</p>')
   })
 })

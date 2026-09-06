@@ -123,7 +123,8 @@ export const useBookStore = defineStore('book', {
     addChapter() {
       const book = this.activeBook
       if (!book) return null
-      const chapter = createChapter()
+      const no = book.chapters.length + 1
+      const chapter = createChapter(`第${no}章`)
       book.chapters.push(chapter)
       this.persist()
       return chapter

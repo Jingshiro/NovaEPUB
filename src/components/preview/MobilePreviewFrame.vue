@@ -35,13 +35,13 @@ const srcdoc = computed(() => {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>${escape(title)}</title>
 <style>
 ${css}
 body { padding: 0 22px; }
 </style>
 </head>
 <body>
-<h1 class="chapter-title">${escape(title)}</h1>
 <div class="chapter-body">${content}</div>
 </body>
 </html>`

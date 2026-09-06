@@ -106,7 +106,6 @@ export function buildChapterXhtml(chapter, book, index, contentOverride) {
     <link rel="stylesheet" type="text/css" href="styles.css"/>
   </head>
   <body>
-    <h1 class="chapter-title">${escapeXml(chapter.title)}</h1>
     <div class="chapter-body">
 ${content}
     </div>

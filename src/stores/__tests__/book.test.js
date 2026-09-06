@@ -59,6 +59,13 @@ describe('book store', () => {
     expect(store.getChapter(ch.id).wordCount).toBe(4)
   })
 
+  it('新增章节自动编号为第X章', () => {
+    const store = useBookStore()
+    store.createBook()
+    const ch = store.addChapter()
+    expect(ch.title).toBe('第2章')
+  })
+
   it('countWords 处理空字符串', () => {
     expect(countWords('')).toBe(0)
   })
