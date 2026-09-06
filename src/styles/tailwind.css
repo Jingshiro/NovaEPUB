@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  html,
+  body,
+  #app {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+  }
+  * {
+    box-sizing: border-box;
+  }
+  button {
+    cursor: pointer;
+  }
+  /* 编辑态：最小留白、清晰层级 */
+  :focus-visible {
+    outline: 2px solid theme('colors.accent.DEFAULT');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* 通用按钮 —— 圆角 6px，主色背景，悬浮加深，无渐变 */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-btn px-4 py-2 text-sm font-medium transition-colors select-none;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-hover;
+  }
+  .btn-secondary {
+    @apply btn bg-bg-muted text-ink hover:bg-line;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-ink-secondary hover:bg-bg-muted;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white hover:opacity-90;
+  }
+
+  .card {
+    @apply rounded-card bg-bg-card shadow-card border border-line;
+  }
+
+  .input {
+    @apply w-full rounded-btn border border-line bg-bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-placeholder focus:border-accent focus:outline-none transition-colors;
+  }
+  .label {
+    @apply block w-20 shrink-0 text-sm text-ink-secondary;
+  }
+}
