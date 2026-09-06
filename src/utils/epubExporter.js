@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
-import { countWords } from '../stores/book'
+import { splitTemplate } from './template'
 
 /** 转义 XML 特殊字符。 */
 export function escapeXml(str = '') {
@@ -10,13 +10,6 @@ export function escapeXml(str = '') {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;')
-}
-
-function slugify(text) {
-  return String(text)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'chapter'
 }
 
 /** 构建 META-INF/container.xml。 */
@@ -29,8 +22,8 @@ export function buildContainerXml() {
 </container>`
 }
 
-/** 构建 OPF 包清单。 */
-export function buildOpfXml(book) {
+/** 构建 OPF 包清单。images: [{ filename, type }] */
+export function buildOpfXml(book, images = []) {
   const chapters = book.chapters || []
   const meta = [
     `<dc:title>${escapeXml(book.title)}</dc:title>`,
@@ -47,6 +40,9 @@ export function buildOpfXml(book) {
   if (book.cover) {
     manifest.push('<item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>')
   }
+  images.forEach((img, i) => {
+    manifest.push(`<item id="image-${i + 1}" href="images/${img.filename}" media-type="${img.type}"/>`)
+  })
   chapters.forEach((ch, i) => {
     manifest.push(`<item id="chapter-${i + 1}" href="chapter-${i + 1}.xhtml" media-type="application/xhtml+xml"/>`)
   })
@@ -99,8 +95,9 @@ export function buildNcxXml(book) {
 </ncx>`
 }
 
-/** 构建单个章节的 XHTML。 */
-export function buildChapterXhtml(chapter, book, index) {
+/** 构建单个章节的 XHTML。content 可传入处理后的正文。 */
+export function buildChapterXhtml(chapter, book, index, contentOverride) {
+  const content = contentOverride != null ? contentOverride : (chapter.content || '')
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${escapeXml(book.language || 'zh-CN')}">
@@ -111,14 +108,14 @@ export function buildChapterXhtml(chapter, book, index) {
   <body>
     <h1 class="chapter-title">${escapeXml(chapter.title)}</h1>
     <div class="chapter-body">
-${chapter.content || ''}
+${content}
     </div>
   </body>
 </html>`
 }
 
-/** 构建默认阅读 CSS。 */
-export function buildStylesCss() {
+/** 构建默认阅读 CSS，可追加额外样式。 */
+export function buildStylesCss(extra = '') {
   return `/* 轻墨 LightInk 默认阅读样式 */
 body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'PingFang SC', sans-serif;
@@ -146,6 +143,7 @@ body {
 }
 .chapter-body img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
 .chapter-body ul, .chapter-body ol { margin: 0 0 1em 0; padding-left: 1.5em; }
+${extra}
 `
 }
 
@@ -158,20 +156,80 @@ export function dataUrlToBytes(dataUrl) {
   return bytes
 }
 
+function mimeToExt(type) {
+  if (type === 'jpeg') return 'jpg'
+  if (type === 'gif') return 'gif'
+  if (type === 'webp') return 'webp'
+  return 'png'
+}
+
+function imageMediaType(type) {
+  if (type === 'jpeg') return 'image/jpeg'
+  if (type === 'gif') return 'image/gif'
+  if (type === 'webp') return 'image/webp'
+  return 'image/png'
+}
+
+/** 从章节正文提取 dataURL 图片，改写为 images/ 相对路径。 */
+function rewriteImages(content, counter) {
+  const images = []
+  let count = counter
+  const rewritten = (content || '').replace(
+    /<img([^>]*?)src="(data:image\/([^;]+);base64,[^"]+)"([^>]*?)>/gi,
+    (match, before, dataUrl, type, after) => {
+      count += 1
+      const filename = `image-${count}.${mimeToExt(type)}`
+      images.push({ filename, dataUrl, type })
+      return `<img${before}src="images/${filename}"${after}>`
+    },
+  )
+  return { content: rewritten, images, count }
+}
+
+/** 提取正文中的 <style> 块并移除，返回收集到的 CSS。 */
+function extractInlineStyle(content, sink) {
+  const rewritten = (content || '').replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (m, inner) => {
+    if (inner && inner.trim()) sink.push(inner.trim())
+    return ''
+  })
+  return rewritten
+}
+
 /** 根据 bookStore 的书籍对象打包生成合法的 EPUB 文件并触发下载。 */
-export async function exportEpubFile(book, { download = true } = {}) {
+export async function exportEpubFile(book, { download = true, templates = [] } = {}) {
   const zip = new JSZip()
+  const extraCss = []
+
+  // 模板内定义的 <style> 样式，一并编译进 styles.css
+  templates.forEach((tpl) => {
+    const { css } = splitTemplate(tpl.html)
+    extraCss.push(...css)
+  })
+
+  // 预处理章节：提样式、改写图片
+  const publishedImages = []
+  let imgCounter = 0
+  const chapters = (book.chapters || []).map((ch) => {
+    let content = extractInlineStyle(ch.content || '', extraCss)
+    const res = rewriteImages(content, imgCounter)
+    imgCounter = res.count
+    res.images.forEach((img) => publishedImages.push(img))
+    return { ch, content: res.content }
+  })
 
   // 1. mimetype 必须是首项且不压缩
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' })
   zip.file('META-INF/container.xml', buildContainerXml())
-  zip.file('OEBPS/content.opf', buildOpfXml(book))
+  zip.file('OEBPS/content.opf', buildOpfXml(book, publishedImages))
   zip.file('OEBPS/toc.ncx', buildNcxXml(book))
-  zip.file('OEBPS/styles.css', buildStylesCss())
+  zip.file('OEBPS/styles.css', buildStylesCss(extraCss.join('\n')))
 
-  const chapters = book.chapters || []
-  chapters.forEach((ch, i) => {
-    zip.file(`OEBPS/chapter-${i + 1}.xhtml`, buildChapterXhtml(ch, book, i))
+  chapters.forEach(({ ch, content }, i) => {
+    zip.file(`OEBPS/chapter-${i + 1}.xhtml`, buildChapterXhtml(ch, book, i, content))
+  })
+
+  publishedImages.forEach((img) => {
+    zip.file(`OEBPS/images/${img.filename}`, dataUrlToBytes(img.dataUrl))
   })
 
   // 封面
@@ -189,4 +247,3 @@ export async function exportEpubFile(book, { download = true } = {}) {
   }
   return blob
 }
-

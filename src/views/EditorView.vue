@@ -54,45 +54,78 @@
       <main class="min-w-0 flex-1 overflow-hidden">
         <div class="h-full overflow-auto px-8 py-6">
           <div v-show="!uiStore.previewMode" class="h-full">
-            <EditorCanvas :chapter="activeChapter" />
+            <EditorCanvas :chapter="activeChapter" @manage-templates="openTemplateEditor(null)" />
           </div>
           <div v-show="uiStore.previewMode" class="h-full">
-            <MobilePreviewFrame :book="book" :chapter="activeChapter" />
+            <MobilePreviewFrame :book="book" :chapter="activeChapter" :templates="templateStore.templates" />
           </div>
         </div>
       </main>
 
-      <aside class="w-[280px] shrink-0 border-l border-line bg-bg-muted">
-        <MetadataPanel @export="exportBook" />
+      <aside class="w-[280px] shrink-0 flex flex-col border-l border-line bg-bg-muted">
+        <section class="min-h-0 flex-1 overflow-hidden">
+          <StylePanel @add="openTemplateEditor(null)" @edit="openTemplateEditor" />
+        </section>
+        <section class="shrink-0 border-t border-line">
+          <MetadataPanel @export="exportBook" />
+        </section>
       </aside>
     </div>
 
     <BookMetadataModal />
+    <TemplateEditorModal :open="templateModalOpen" :template="editingTemplate" @close="closeTemplateEditor" @save="handleTemplateSave" />
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useEditorStore } from '../stores/editor'
 import { useUiStore } from '../stores/ui'
+import { useTemplateStore } from '../stores/templates'
 import { useEpubExporter } from '../hooks/useEpubExporter'
 import ChapterTree from '../components/sidebar/ChapterTree.vue'
 import MetadataPanel from '../components/sidebar/MetadataPanel.vue'
 import EditorCanvas from '../components/editor/EditorCanvas.vue'
 import MobilePreviewFrame from '../components/preview/MobilePreviewFrame.vue'
 import BookMetadataModal from '../components/editor/BookMetadataModal.vue'
+import TemplateEditorModal from '../components/editor/TemplateEditorModal.vue'
+import StylePanel from '../components/sidebar/StylePanel.vue'
 
 const props = defineProps({ bookId: { type: String, required: true } })
 const router = useRouter()
 const bookStore = useBookStore()
 const editorStore = useEditorStore()
 const uiStore = useUiStore()
+const templateStore = useTemplateStore()
 
 const book = computed(() => bookStore.activeBook)
 const activeChapter = computed(() => editorStore.activeChapter)
 const { exportBook: doExport } = useEpubExporter()
+
+const templateModalOpen = ref(false)
+const editingTemplate = ref(null)
+
+templateStore.ensureLoaded()
+
+function openTemplateEditor(tpl) {
+  editingTemplate.value = tpl || null
+  templateModalOpen.value = true
+}
+
+function closeTemplateEditor() {
+  templateModalOpen.value = false
+}
+
+function handleTemplateSave(payload) {
+  if (payload.id) {
+    templateStore.updateTemplate(payload.id, payload)
+  } else {
+    templateStore.addTemplate(payload)
+  }
+  closeTemplateEditor()
+}
 
 onMounted(() => {
   const loaded = bookStore.loadBook(props.bookId)
@@ -126,7 +159,7 @@ function goLibrary() {
 async function exportBook() {
   if (!book.value) return
   try {
-    await doExport(book.value)
+    await doExport(book.value, { templates: templateStore.templates })
   } catch (err) {
     console.error(err)
     window.alert('导出失败：' + (err.message || err))

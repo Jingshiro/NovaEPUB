@@ -13,14 +13,20 @@
 <script setup>
 import { computed } from 'vue'
 import { buildStylesCss } from '../../utils/epubExporter'
+import { splitTemplate } from '../../utils/template'
 
 const props = defineProps({
   book: { type: Object, default: null },
   chapter: { type: Object, default: null },
+  templates: { type: Array, default: () => [] },
 })
 
 const srcdoc = computed(() => {
-  const css = buildStylesCss()
+  const extra = (props.templates || [])
+    .map((t) => splitTemplate(t.html).css.join('\n'))
+    .filter(Boolean)
+    .join('\n')
+  const css = buildStylesCss(extra)
   const content = props.chapter?.content || ''
   const title = props.chapter?.title || '空章节'
   const lang = props.book?.language || 'zh-CN'

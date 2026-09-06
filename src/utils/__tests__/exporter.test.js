@@ -86,4 +86,24 @@ describe('样式与内容', () => {
     expect(await zip.file('OEBPS/content.opf').async('string')).toContain('<spine')
     expect(await zip.file('OEBPS/toc.ncx').async('string')).toContain('<navMap')
   })
+
+  it('导出时打包图片并改写 src、编译模板样式', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const testBook = createBook({
+      title: '图册',
+      author: '镜',
+      chapters: [{ id: 'x', title: '第一章', content: `<p>hi</p><img src="${png}">` }],
+    })
+    const templates = [
+      { id: 't1', name: '引用', html: '<style>.q{border-left:2px solid #000}</style><blockquote class="q">$1</blockquote>' },
+    ]
+    const blob = await exportEpubFile(testBook, { download: false, templates })
+    const zip = await JSZip.loadAsync(Buffer.from(await blob.arrayBuffer()))
+    expect(zip.file('OEBPS/images/image-1.png')).toBeTruthy()
+    const ch = await zip.file('OEBPS/chapter-1.xhtml').async('string')
+    expect(ch).toContain('src="images/image-1.png"')
+    expect(ch).not.toContain(png)
+    const css = await zip.file('OEBPS/styles.css').async('string')
+    expect(css).toContain('.q')
+  })
 })

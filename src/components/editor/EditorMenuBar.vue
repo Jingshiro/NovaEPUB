@@ -26,19 +26,43 @@
       &lt;/&gt;
     </button>
     <span class="mx-1 h-4 w-px bg-line"></span>
+    <button class="tool" title="插入图片" @mousedown.prevent @click="pickImage">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="mx-1 h-4 w-px bg-line"></span>
     <button class="tool" title="撤销" @mousedown.prevent @click="editor.chain().focus().undo().run()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <button class="tool" title="重做" @mousedown.prevent @click="editor.chain().focus().redo().run()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
+    <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onFileChange" />
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
 const props = defineProps({
   editor: { type: Object, default: null },
 })
+const fileInput = ref(null)
+
+function pickImage() {
+  fileInput.value?.click()
+}
+
+function onFileChange(e) {
+  const file = e.target.files?.[0]
+  if (file && props.editor) {
+    const reader = new FileReader()
+    reader.onload = () => {
+      props.editor.chain().focus().setImage({ src: reader.result }).run()
+    }
+    reader.readAsDataURL(file)
+  }
+  e.target.value = ''
+}
 </script>
 
 <style scoped>

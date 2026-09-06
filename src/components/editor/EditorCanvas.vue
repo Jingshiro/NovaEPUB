@@ -1,5 +1,5 @@
 <template>
-  <div ref="editorContainer" class="relative flex h-full flex-col">
+  <div ref="editorContainer" class="relative flex h-full flex-col" @contextmenu="onContextMenu">
     <div class="mb-3 shrink-0">
       <EditorMenuBar :editor="editorStore.editor" />
     </div>
@@ -17,6 +17,16 @@
       :options="blockOptions"
       @select="applyBlock"
     />
+
+    <TemplatePalette
+      :visible="showTemplateMenu"
+      :x="templateMenuPos.x"
+      :y="templateMenuPos.y"
+      :templates="templateStore.templates"
+      @select="applyTemplate"
+      @manage="emit('manageTemplates')"
+      @close="closeTemplateMenu"
+    />
   </div>
 </template>
 
@@ -25,21 +35,30 @@ import { ref, watch, onBeforeUnmount } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
+import Image from '@tiptap/extension-image'
 import { useEditorStore } from '../../stores/editor'
 import { useBookStore } from '../../stores/book'
+import { useTemplateStore } from '../../stores/templates'
+import { applyTemplateToEditor } from '../../utils/template'
 import EditorMenuBar from './EditorMenuBar.vue'
 import BlockPicker from './BlockPicker.vue'
+import TemplatePalette from './TemplatePalette.vue'
 
 const props = defineProps({
   chapter: { type: Object, default: null },
 })
+const emit = defineEmits(['manageTemplates'])
 
 const editorStore = useEditorStore()
 const bookStore = useBookStore()
+const templateStore = useTemplateStore()
+templateStore.ensureLoaded()
 
 const editorContainer = ref(null)
 const showBlockMenu = ref(false)
 const menuPos = ref({ x: 0, y: 0 })
+const showTemplateMenu = ref(false)
+const templateMenuPos = ref({ x: 0, y: 0 })
 
 const blockOptions = [
   { type: 'paragraph', label: '正文', icon: '¶' },
@@ -52,10 +71,13 @@ const blockOptions = [
   { type: 'codeBlock', label: '代码块', icon: '</>' },
 ]
 
-// useEditor 返回 shallowRef，编辑器实例通过 onCreate 写入 store
 useEditor({
   content: props.chapter?.content || '',
-  extensions: [StarterKit, Placeholder.configure({ placeholder: '空章节 · 输入正文，或键入 “/” 查看块类型' })],
+  extensions: [
+    StarterKit,
+    Placeholder.configure({ placeholder: '空章节 · 输入正文，或键入 “/” 查看块类型' }),
+    Image.configure({ inline: false, allowBase64: true }),
+  ],
   editorProps: {
     attributes: {
       class: 'focus:outline-none',
@@ -66,10 +88,31 @@ useEditor({
       const doc = new DOMParser().parseFromString(html, 'text/html')
       return doc.body.textContent || ''
     },
+    // 粘贴剪贴板图片（截图）直接插入
+    handlePaste: (view, event) => {
+      const items = event.clipboardData?.items
+      if (!items) return false
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (file) {
+            const reader = new FileReader()
+            reader.onload = () => {
+              editorStore.editor?.chain().focus().setImage({ src: reader.result }).run()
+            }
+            reader.readAsDataURL(file)
+            event.preventDefault()
+            return true
+          }
+        }
+      }
+      return false
+    },
   },
   onUpdate: ({ editor }) => {
     handleEditorUpdate(editor)
     checkSlash(editor)
+    closeTemplateMenu()
   },
   onSelectionUpdate: ({ editor }) => {
     checkSlash(editor)
@@ -112,7 +155,6 @@ function applyBlock(type) {
   const ed = editorStore.editor
   if (!ed) return
   const { $from } = ed.state.selection
-  // 删除当前文本块内的 '/' 占位内容
   const start = $from.start()
   const end = $from.end()
   ed.chain().focus().deleteRange({ from: start, to: end }).run()
@@ -128,6 +170,31 @@ function applyBlock(type) {
   }
   commands[type]?.()
   showBlockMenu.value = false
+}
+
+function onContextMenu(e) {
+  const ed = editorStore.editor
+  if (!ed) return
+  const { from, empty } = ed.state.selection
+  const hasSelection = !empty || !!ed.state.selection.node
+  if (!hasSelection) return
+  e.preventDefault()
+  const coords = ed.view.coordsAtPos(from)
+  const rect = ed.view.dom.getBoundingClientRect()
+  templateMenuPos.value = {
+    x: Math.max(0, coords.left - rect.left),
+    y: Math.max(0, coords.bottom - rect.top + 2),
+  }
+  showTemplateMenu.value = true
+}
+
+function applyTemplate(tpl) {
+  applyTemplateToEditor(editorStore.editor, tpl)
+  closeTemplateMenu()
+}
+
+function closeTemplateMenu() {
+  showTemplateMenu.value = false
 }
 
 // 切换到新章节时更新编辑器内容（不触发更新写入）
@@ -194,7 +261,18 @@ onBeforeUnmount(() => {
   padding: 1em;
   overflow-x: auto;
 }
+.prose figure {
+  margin: 1em 0;
+  text-align: center;
+}
+.prose img {
+  max-width: 100%;
+  height: auto;
+}
 .prose .ProseMirror {
   min-height: 60vh;
+}
+.prose .ProseMirror img {
+  cursor: pointer;
 }
 </style>
