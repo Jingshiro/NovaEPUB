@@ -3,6 +3,8 @@ import { uuid } from '../utils/id'
 import { seedDefaultTemplates } from '../utils/template'
 
 const TEMPLATES_KEY = 'novaepub:templates'
+const TEMPLATES_VERSION_KEY = 'novaepub:templates-version'
+const SEED_VERSION = 2
 
 function loadStored() {
   try {
@@ -12,6 +14,14 @@ function loadStored() {
   } catch (err) {
     console.warn('[templates] 读取失败', err)
     return null
+  }
+}
+
+function loadVersion() {
+  try {
+    return parseInt(localStorage.getItem(TEMPLATES_VERSION_KEY) || '0', 10) || 0
+  } catch {
+    return 0
   }
 }
 
@@ -37,12 +47,26 @@ export const useTemplateStore = defineStore('templates', {
     ensureLoaded() {
       if (this.loaded) return
       const stored = loadStored()
-      if (stored === null) {
+      const version = loadVersion()
+      const defaults = seedDefaultTemplates()
+
+      if (stored === null || stored.length === 0) {
         // 首次使用：写入默认模板
-        this.templates = seedDefaultTemplates()
+        this.templates = defaults
         persist(this.templates)
+        localStorage.setItem(TEMPLATES_VERSION_KEY, String(SEED_VERSION))
       } else {
         this.templates = stored
+        // 版本升级：追加缺失的内置模板，保留用户的自定义/编辑
+        if (version < SEED_VERSION) {
+          defaults.forEach((d) => {
+            if (!this.templates.some((t) => t.id === d.id)) {
+              this.templates.push(d)
+            }
+          })
+          persist(this.templates)
+          localStorage.setItem(TEMPLATES_VERSION_KEY, String(SEED_VERSION))
+        }
       }
       this.loaded = true
     },

@@ -3,7 +3,7 @@
     <div class="flex h-full w-full max-w-sm flex-col overflow-hidden rounded-card border border-line bg-white shadow-card">
       <div class="flex items-center justify-between border-b border-line px-4 py-2">
         <span class="text-xs text-ink-placeholder">预览 · 手机阅读</span>
-        <span class="text-xs text-ink-secondary">{{ book.title }}</span>
+        <span class="text-xs text-ink-secondary">{{ book?.title || '' }}</span>
       </div>
       <iframe :srcdoc="srcdoc" class="h-full w-full flex-1 border-0 bg-white" />
     </div>

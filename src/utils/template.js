@@ -141,6 +141,21 @@ export const DEFAULT_TEMPLATES = [
     target: 'code',
     html: '<pre style="background:#F4F4F4;padding:1em;border-radius:8px;overflow-x:auto;color:#1E1E1E;"><code>$1</code></pre>',
   },
+  {
+    name: '首字下沉',
+    target: 'paragraph',
+    html: '<style>.dropcap::first-letter{float:left;font-size:3.2em;font-weight:700;line-height:1;padding-right:0.12em;color:#E16259;}</style><p class="dropcap" style="line-height:1.8;margin:0 0 1em;">$1</p>',
+  },
+  {
+    name: '注释小字',
+    target: 'paragraph',
+    html: '<p style="font-size:0.85em;color:#6B6B6B;line-height:1.7;margin:0.5em 0;">$1</p>',
+  },
+  {
+    name: '居中标题',
+    target: 'heading',
+    html: '<h2 style="font-size:1.4em;font-weight:700;text-align:center;margin:1em 0 0.6em;color:#1E1E1E;">$1</h2>',
+  },
 ]
 
 /** 给默认模板补 id 与时间戳。 */

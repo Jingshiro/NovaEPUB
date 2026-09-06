@@ -42,4 +42,24 @@ describe('EditorView', () => {
     expect(wrapper.text()).toContain('导出 EPUB')
     expect(wrapper.text()).toContain('属性')
   })
+
+  it('从书架点击进入时 activeBookId 尚未加载也有兜底，不白屏', async () => {
+    const pinia2 = createPinia()
+    setActivePinia(pinia2)
+    const store = useBookStore()
+    const id = store.createBook()
+    store.updateBook({ title: '新书A' })
+    // 模拟「点击书跳转、但尚未 loadBook」的状态
+    store.activeBookId = null
+    const router2 = makeRouter(id)
+    router2.push(`/editor/${id}`)
+    await router2.isReady()
+    const wrapper = mount(EditorView, {
+      global: { plugins: [pinia2, router2] },
+      props: { bookId: id },
+    })
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('新书A')
+    expect(wrapper.text()).toContain('导出 EPUB')
+  })
 })

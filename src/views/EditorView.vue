@@ -100,7 +100,7 @@ const editorStore = useEditorStore()
 const uiStore = useUiStore()
 const templateStore = useTemplateStore()
 
-const book = computed(() => bookStore.activeBook)
+const book = computed(() => bookStore.activeBook || {})
 const activeChapter = computed(() => editorStore.activeChapter)
 const { exportBook: doExport } = useEpubExporter()
 
