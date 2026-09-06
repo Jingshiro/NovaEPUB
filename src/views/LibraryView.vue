@@ -3,7 +3,7 @@
     <!-- 左侧书目列表 -->
     <aside class="w-64 shrink-0 flex flex-col border-r border-line bg-bg-muted">
       <div class="px-4 py-4 flex items-center gap-2">
-        <span class="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-white font-bold">N</span>
+        <img src="/icon.jpg" alt="NovaEpub" class="h-7 w-7 rounded-md object-cover" />
         <h1 class="text-sm font-semibold text-ink">NovaEpub</h1>
       </div>
       <div class="px-4 pb-2 text-xs text-ink-placeholder">我的书架</div>
