@@ -46,7 +46,7 @@
         <!-- 新建 / 导入大卡片 -->
         <div
           class="card flex min-h-56 cursor-pointer flex-col items-center justify-center gap-4 border-2 border-dashed !border-line py-12 text-center transition-colors hover:!border-accent hover:bg-bg-muted"
-          @click="pickFile"
+          @click="createNewBook"
         >
           <div class="flex h-14 w-14 items-center justify-center rounded-card bg-accent text-white">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -55,8 +55,9 @@
           </div>
           <div>
             <p class="text-base font-medium text-ink">新建 EPUB</p>
-            <p class="text-sm text-ink-secondary mt-1">点击选择或拖拽 .epub 文件到这里</p>
+            <p class="text-sm text-ink-secondary mt-1">点击创建一个空白电子书，或拖拽 .epub 文件导入</p>
           </div>
+          <button class="btn-secondary mt-1" @click.stop="pickFile">导入 .epub 文件</button>
           <p v-if="loading" class="text-sm text-accent">正在解析 EPUB…</p>
           <p v-if="error" class="text-sm text-danger">{{ error }}</p>
         </div>
@@ -117,6 +118,11 @@ function openBook(id) {
 
 function pickFile() {
   fileInput.value?.click()
+}
+
+function createNewBook() {
+  const id = bookStore.createBook()
+  router.push({ name: 'editor', params: { bookId: id } })
 }
 
 function onFileChange(e) {
