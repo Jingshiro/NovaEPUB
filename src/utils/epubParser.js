@@ -89,15 +89,15 @@ async function parseOpf(zip, opfPath) {
 
 /** 读取 NCX 目录，返回 { [spineId]: title }。 */
 async function parseNcx(zip, opfPath, manifest, spineIds) {
+  const dir = opfPath.split('/').slice(0, -1).join('/')
   let ncxPath = null
   for (const id of Object.keys(manifest)) {
     if (manifest[id].type === 'application/x-dtbncx+xml' || /toc\.ncx$/i.test(manifest[id].href)) {
-      ncxPath = manifest[id].href
+      ncxPath = dir ? `${dir}/${manifest[id].href}` : manifest[id].href
       break
     }
   }
   if (!ncxPath) {
-    const dir = opfPath.split('/').slice(0, -1).join('/')
     const candidate = dir ? `${dir}/toc.ncx` : 'toc.ncx'
     if (zip.file(candidate)) ncxPath = candidate
   }
@@ -109,7 +109,6 @@ async function parseNcx(zip, opfPath, manifest, spineIds) {
   const doc = parseXml(text)
 
   const map = {}
-  const dir = opfPath.split('/').slice(0, -1).join('/')
   const resolveHref = (href) => {
     const clean = href.split('#')[0].replace(/^\.\//, '')
     for (const id of Object.keys(manifest)) {
