@@ -107,3 +107,83 @@ describe('样式与内容', () => {
     expect(css).toContain('.q')
   })
 })
+
+  it('导出时按书内资源库打包字体/媒体并重写 OPF/CSS/正文引用', async () => {
+    const testBook = createBook({
+      title: '资源书',
+      author: '镜',
+      chapters: [{ id: 'x', title: '第一章', content: '<p>视频</p><video src="book-resource://vid1"></video>' }],
+      resources: [
+        { id: 'font1', filename: 'test.woff', type: 'application/font-woff', kind: 'font', dataUrl: 'data:font/woff;base64,dGVzdA==' },
+        { id: 'vid1', filename: 'clip.mp4', type: 'video/mp4', kind: 'media', dataUrl: 'data:video/mp4;base64,aGVsbG8=' },
+      ],
+      styles: ['@font-face{font-family:"T";src:url("book-resource://font1") format("woff")}'],
+    })
+    const blob = await exportEpubFile(testBook, { download: false, templates: [] })
+    const zip = await JSZip.loadAsync(Buffer.from(await blob.arrayBuffer()))
+
+    expect(zip.file('OEBPS/fonts/test.woff')).toBeTruthy()
+    expect(zip.file('OEBPS/media/clip.mp4')).toBeTruthy()
+
+    const opf = await zip.file('OEBPS/content.opf').async('string')
+    expect(opf).toContain('href="fonts/test.woff"')
+    expect(opf).toContain('href="media/clip.mp4"')
+
+    const css = await zip.file('OEBPS/styles.css').async('string')
+    expect(css).toContain('url("fonts/test.woff")')
+
+    const ch = await zip.file('OEBPS/chapter-1.xhtml').async('string')
+    expect(ch).toContain('src="media/clip.mp4"')
+  })
+
+  it('导出时按书内图库 id 打包图片并把持久化样式写入 CSS', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const testBook = createBook({
+      title: '书内图库',
+      author: '镜',
+      chapters: [{ id: 'x', title: '第一章', content: '<p>图</p><img src="book-image://img-abc">' }],
+      images: [
+        { id: 'img-abc', filename: 'img-original.png', type: 'image/png', dataUrl: png },
+      ],
+      styles: ['.kept-style{color:red}'],
+    })
+    const blob = await exportEpubFile(testBook, { download: false, templates: [] })
+    const zip = await JSZip.loadAsync(Buffer.from(await blob.arrayBuffer()))
+    expect(zip.file('OEBPS/images/img-original.png')).toBeTruthy()
+    const ch = await zip.file('OEBPS/chapter-1.xhtml').async('string')
+    expect(ch).toContain('src="images/img-original.png"')
+    const css = await zip.file('OEBPS/styles.css').async('string')
+    expect(css).toContain('.kept-style')
+  })
+
+  it('导出的 OPF 使用 EPUB2 标准封面声明，不写入 EPUB3 专属属性', async () => {
+    const testBook = createBook({
+      title: '有封面',
+      author: '镜',
+      chapters: [{ id: 'x', title: '第一章', content: '<p>内容</p>' }],
+      cover: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+    })
+    const blob = await exportEpubFile(testBook, { download: false, templates: [] })
+    const zip = await JSZip.loadAsync(Buffer.from(await blob.arrayBuffer()))
+    expect(zip.file('OEBPS/cover.jpg')).toBeTruthy()
+    const opf = await zip.file('OEBPS/content.opf').async('string')
+    expect(opf).toContain('<meta name="cover" content="cover-image"/>')
+    expect(opf).toContain('href="cover.jpg"')
+    expect(opf).not.toContain('properties="cover-image"')
+  })
+
+  it('PNG 封面按实际 MIME 导出为 cover.png，OPF 使用 image/png', async () => {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    const testBook = createBook({
+      title: 'PNG封面',
+      author: '镜',
+      chapters: [{ id: 'x', title: '第一章', content: '<p>内容</p>' }],
+      cover: png,
+    })
+    const blob = await exportEpubFile(testBook, { download: false, templates: [] })
+    const zip = await JSZip.loadAsync(Buffer.from(await blob.arrayBuffer()))
+    expect(zip.file('OEBPS/cover.png')).toBeTruthy()
+    const opf = await zip.file('OEBPS/content.opf').async('string')
+    expect(opf).toContain('href="cover.png"')
+    expect(opf).toContain('media-type="image/png"')
+  })

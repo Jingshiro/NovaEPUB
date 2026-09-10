@@ -46,9 +46,11 @@
 import { ref, computed, nextTick } from 'vue'
 import { useBookStore } from '../../stores/book'
 import { useEditorStore } from '../../stores/editor'
+import { useHistoryStore } from '../../stores/history'
 
 const bookStore = useBookStore()
 const editorStore = useEditorStore()
+const historyStore = useHistoryStore()
 
 const chapters = computed(() => bookStore.activeBook?.chapters || [])
 const activeChapterId = computed(() => editorStore.activeChapterId)
@@ -62,12 +64,14 @@ function select(id) {
 }
 
 function addChapter() {
+  historyStore.capture('新增章节')
   const chapter = bookStore.addChapter()
   if (chapter) editorStore.setActiveChapter(chapter.id)
 }
 
 function remove(chapter) {
   if (window.confirm(`删除章节「${chapter.title}」？`)) {
+    historyStore.capture('删除章节')
     bookStore.removeChapter(chapter.id)
     const next = bookStore.activeBook?.chapters?.[0]
     if (next) editorStore.setActiveChapter(next.id)
@@ -75,6 +79,7 @@ function remove(chapter) {
 }
 
 function move(id, dir) {
+  historyStore.capture('移动章节')
   bookStore.moveChapter(id, dir)
 }
 
@@ -86,6 +91,7 @@ function startRename(chapter) {
 
 function commitRename() {
   if (editingId.value) {
+    historyStore.capture('重命名章节')
     bookStore.renameChapter(editingId.value, editingTitle.value.trim() || '未命名章节')
   }
   editingId.value = null

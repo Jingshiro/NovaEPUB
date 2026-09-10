@@ -70,3 +70,18 @@ describe('book store', () => {
     expect(countWords('')).toBe(0)
   })
 })
+
+  it('createBook 默认包含书内图库与样式快照数组', () => {
+    const book = createBook()
+    expect(Array.isArray(book.images)).toBe(true)
+    expect(Array.isArray(book.styles)).toBe(true)
+  })
+
+  it('addTemplateStyles 去重保存模板样式并自动持久化', () => {
+    const store = useBookStore()
+    store.createBook()
+    store.addTemplateStyles('.q{color:red}')
+    store.addTemplateStyles('.q{color:red}')
+    store.addTemplateStyles('.other{margin:0}')
+    expect(store.activeBook.styles).toEqual(['.q{color:red}', '.other{margin:0}'])
+  })

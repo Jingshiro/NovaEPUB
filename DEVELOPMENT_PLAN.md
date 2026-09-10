@@ -18,7 +18,8 @@
 - **预览**：375px 居中 iframe，锁定画布。
 - **导出**：生成 OPF + NCX + XHTML + CSS，图片打包、模板 `<style>` 编译进 CSS，mimetype 首项不压缩。
 - **UI**：Notion 式中性配色（炭黑 `#37352F` / 暖灰 `#F7F6F3`），无蓝紫无刺眼红；图标已接入（`/icon.jpg`）。
-- **质量**：Vitest 36 项测试通过，`npm run build` 通过。
+- **质量**：Vitest 84 项测试通过，`npm run build` 通过。
+- **P0 完成情况**：撤销/重做、zip 闭环、容错导入已完成；后续补齐了崩溃恢复（IndexedDB 草稿）、导出前 EPUB 结构自检、封面更换 UI。
 
 ---
 

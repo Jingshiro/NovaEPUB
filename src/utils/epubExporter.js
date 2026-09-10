@@ -22,8 +22,24 @@ export function buildContainerXml() {
 </container>`
 }
 
+/** 计算资源在导出 EPUB 内的相对 OEBPS 路径。 */
+export function resourceExportHref(resource) {
+  const kind = resource?.kind || 'other'
+  const dir = kind === 'font' ? 'fonts' : kind === 'css' ? 'styles' : kind === 'media' ? 'media' : 'resources'
+  return `${dir}/${resource.filename || 'resource.bin'}`
+}
+
+/** 计算封面导出后的文件名与 MIME，根据 dataURL 实际类型决定扩展名。 */
+function coverFileInfo(book) {
+  if (!book.cover) return null
+  const m = String(book.cover).match(/^data:([^;]+);/)
+  const type = m ? m[1] : 'image/jpeg'
+  const ext = mimeToExt(type)
+  return { filename: `cover.${ext}`, type }
+}
+
 /** 构建 OPF 包清单。images: [{ filename, type }] */
-export function buildOpfXml(book, images = []) {
+export function buildOpfXml(book, images = [], resources = []) {
   const chapters = book.chapters || []
   const meta = [
     `<dc:title>${escapeXml(book.title)}</dc:title>`,
@@ -37,11 +53,16 @@ export function buildOpfXml(book, images = []) {
     `<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>`,
     `<item id="css" href="styles.css" media-type="text/css"/>`,
   ]
-  if (book.cover) {
-    manifest.push('<item id="cover-image" href="cover.jpg" media-type="image/jpeg" properties="cover-image"/>')
+  const cover = coverFileInfo(book)
+  if (cover) {
+    // EPUB2 使用 <meta name="cover"> 标识封面；properties="cover-image" 是 EPUB3 属性，留在这里会让 EPUB2 校验不通过。
+    manifest.push(`<item id="cover-image" href="${cover.filename}" media-type="${cover.type}"/>`)
   }
   images.forEach((img, i) => {
     manifest.push(`<item id="image-${i + 1}" href="images/${img.filename}" media-type="${img.type}"/>`)
+  })
+  resources.forEach((res, i) => {
+    manifest.push(`<item id="resource-${i + 1}" href="${escapeXml(resourceExportHref(res))}" media-type="${escapeXml(res.type || 'application/octet-stream')}"/>`)
   })
   chapters.forEach((ch, i) => {
     manifest.push(`<item id="chapter-${i + 1}" href="chapter-${i + 1}.xhtml" media-type="application/xhtml+xml"/>`)
@@ -156,9 +177,11 @@ export function dataUrlToBytes(dataUrl) {
 }
 
 function mimeToExt(type) {
-  if (type === 'jpeg') return 'jpg'
-  if (type === 'gif') return 'gif'
-  if (type === 'webp') return 'webp'
+  const t = String(type || '').toLowerCase().replace(/^image\//, '')
+  if (t === 'jpeg' || t === 'jpg') return 'jpg'
+  if (t === 'gif') return 'gif'
+  if (t === 'webp') return 'webp'
+  if (t === 'svg+xml' || t === 'svg') return 'svg'
   return 'png'
 }
 
@@ -185,6 +208,49 @@ function rewriteImages(content, counter) {
   return { content: rewritten, images, count }
 }
 
+/** 把章节正文中的书内图库引用 book-image://{id} 改写为 images/ 相对路径。 */
+function rewriteBookImageRefs(content, book, publishedImages, publishedMap) {
+  const gallery = (book.images || []).reduce((map, img) => {
+    map[img.id] = img
+    return map
+  }, {})
+  return (content || '').replace(/(src|href|xlink:href)="book-image:\/\/([^"]+)"/gi, (match, attr, id) => {
+    const img = gallery[id]
+    if (!img) return match
+    if (!publishedMap[id]) {
+      publishedMap[id] = true
+      publishedImages.push({ filename: img.filename, type: img.type, dataUrl: img.dataUrl })
+    }
+    return `${attr}="images/${img.filename}"`
+  })
+}
+
+/** 把章节正文中的书内资源引用 book-resource://{id} 改写为导出后相对 OEBPS 的路径。 */
+function rewriteBookResourceRefs(content, book) {
+  const gallery = (book.resources || []).reduce((map, res) => {
+    map[res.id] = res
+    return map
+  }, {})
+  return (content || '').replace(/(src|href)="book-resource:\/\/([^"]+)"/gi, (match, attr, id) => {
+    const res = gallery[id]
+    if (!res) return match
+    return `${attr}="${resourceExportHref(res)}"`
+  })
+}
+
+/** 把 CSS 中的书内资源引用 url("book-resource://{id}") 改写为相对 styles.css 的路径。 */
+function rewriteBookResourceUrlsInCss(css, book) {
+  const gallery = (book.resources || []).reduce((map, res) => {
+    map[res.id] = res
+    return map
+  }, {})
+  return (css || '').replace(/url\(\s*["']?book-resource:\/\/([^"')]+)["']?\s*\)/gi, (match, id) => {
+    const res = gallery[id]
+    if (!res) return match
+    return `url("${resourceExportHref(res)}")`
+  })
+}
+
 /** 提取正文中的 <style> 块并移除，返回收集到的 CSS。 */
 function extractInlineStyle(content, sink) {
   const rewritten = (content || '').replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (m, inner) => {
@@ -197,7 +263,8 @@ function extractInlineStyle(content, sink) {
 /** 根据 bookStore 的书籍对象打包生成合法的 EPUB 文件并触发下载。 */
 export async function exportEpubFile(book, { download = true, templates = [] } = {}) {
   const zip = new JSZip()
-  const extraCss = []
+  const publishedResources = book.resources || []
+  const extraCss = [...(book.styles || [])]
 
   // 模板内定义的 <style> 样式，一并编译进 styles.css
   templates.forEach((tpl) => {
@@ -205,11 +272,19 @@ export async function exportEpubFile(book, { download = true, templates = [] } =
     extraCss.push(...css)
   })
 
-  // 预处理章节：提样式、改写图片
+  // 书内 CSS（含导入的 CSS 模板）里的 book-resource 引用改为导出路径
+  for (let i = 0; i < extraCss.length; i++) {
+    extraCss[i] = rewriteBookResourceUrlsInCss(extraCss[i], book)
+  }
+
+  // 预处理章节：提样式、改写书内图库/资源引用、再兜底改写旧 dataURL 图片
   const publishedImages = []
+  const publishedMap = {}
   let imgCounter = 0
   const chapters = (book.chapters || []).map((ch) => {
     let content = extractInlineStyle(ch.content || '', extraCss)
+    content = rewriteBookImageRefs(content, book, publishedImages, publishedMap)
+    content = rewriteBookResourceRefs(content, book)
     const res = rewriteImages(content, imgCounter)
     imgCounter = res.count
     res.images.forEach((img) => publishedImages.push(img))
@@ -219,7 +294,7 @@ export async function exportEpubFile(book, { download = true, templates = [] } =
   // 1. mimetype 必须是首项且不压缩
   zip.file('mimetype', 'application/epub+zip', { compression: 'STORE' })
   zip.file('META-INF/container.xml', buildContainerXml())
-  zip.file('OEBPS/content.opf', buildOpfXml(book, publishedImages))
+  zip.file('OEBPS/content.opf', buildOpfXml(book, publishedImages, publishedResources))
   zip.file('OEBPS/toc.ncx', buildNcxXml(book))
   zip.file('OEBPS/styles.css', buildStylesCss(extraCss.join('\n')))
 
@@ -231,9 +306,19 @@ export async function exportEpubFile(book, { download = true, templates = [] } =
     zip.file(`OEBPS/images/${img.filename}`, dataUrlToBytes(img.dataUrl))
   })
 
+  publishedResources.forEach((res) => {
+    const path = `OEBPS/${resourceExportHref(res)}`
+    if (res.text != null) {
+      zip.file(path, res.text)
+    } else if (res.dataUrl) {
+      zip.file(path, dataUrlToBytes(res.dataUrl))
+    }
+  })
+
   // 封面
-  if (book.cover) {
-    zip.file('OEBPS/cover.jpg', dataUrlToBytes(book.cover))
+  const cover = coverFileInfo(book)
+  if (cover) {
+    zip.file(`OEBPS/${cover.filename}`, dataUrlToBytes(book.cover))
   }
 
   const blob = await zip.generateAsync(

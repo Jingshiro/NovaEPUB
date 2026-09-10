@@ -39,7 +39,8 @@ import Image from '@tiptap/extension-image'
 import { useEditorStore } from '../../stores/editor'
 import { useBookStore } from '../../stores/book'
 import { useTemplateStore } from '../../stores/templates'
-import { applyTemplateToEditor } from '../../utils/template'
+import { applyTemplateToEditor, injectTemplateCss } from '../../utils/template'
+import { fileToCompressedDataUrl, normalizeContentImages, resolveContentImages } from '../../utils/image'
 import EditorMenuBar from './EditorMenuBar.vue'
 import BlockPicker from './BlockPicker.vue'
 import TemplatePalette from './TemplatePalette.vue'
@@ -72,7 +73,7 @@ const blockOptions = [
 ]
 
 useEditor({
-  content: props.chapter?.content || '',
+  content: resolveContentImages(bookStore.activeBook || {}, props.chapter?.content || ''),
   extensions: [
     StarterKit,
     Placeholder.configure({ placeholder: '空章节 · 输入正文，或键入 “/” 查看块类型' }),
@@ -96,12 +97,10 @@ useEditor({
         if (item.type.startsWith('image/')) {
           const file = item.getAsFile()
           if (file) {
-            const reader = new FileReader()
-            reader.onload = () => {
-              editorStore.editor?.chain().focus().setImage({ src: reader.result }).run()
-            }
-            reader.readAsDataURL(file)
             event.preventDefault()
+            fileToCompressedDataUrl(file).then((src) => {
+              editorStore.editor?.chain().focus().setImage({ src }).run()
+            })
             return true
           }
         }
@@ -124,8 +123,17 @@ useEditor({
 
 function handleEditorUpdate(ed) {
   if (!props.chapter) return
+  const book = bookStore.activeBook
   const html = ed.getHTML()
-  bookStore.saveChapterContent(props.chapter.id, html)
+  const original = props.chapter.content || ''
+  const looksEmpty = !html || !html.trim() || /^<p>\s*<\/p>$/.test(html.trim())
+  // 保护图片封面页：如果原内容里有图片/书内图片引用，而编辑器突然给出空段落，
+  // 很可能是初始化/切换章节时的误清空，不能覆盖原内容。
+  if (looksEmpty && original && original !== '<p></p>' && /<img|book-image:\/\//i.test(original)) {
+    return
+  }
+  const normalized = normalizeContentImages(book, html)
+  bookStore.saveChapterContent(props.chapter.id, normalized)
 }
 
 function checkSlash(ed) {
@@ -189,7 +197,9 @@ function onContextMenu(e) {
 }
 
 function applyTemplate(tpl) {
-  applyTemplateToEditor(editorStore.editor, tpl)
+  applyTemplateToEditor(editorStore.editor, tpl, {
+    onStyleCss: (css) => bookStore.addTemplateStyles(css),
+  })
   closeTemplateMenu()
 }
 
@@ -203,9 +213,26 @@ watch(
   (newId, oldId) => {
     if (!editorStore.editor) return
     if (newId !== oldId) {
-      editorStore.editor.commands.setContent(props.chapter?.content || '', false)
+      const html = resolveContentImages(bookStore.activeBook || {}, props.chapter?.content || '')
+      editorStore.editor.commands.setContent(html, false)
     }
   },
+)
+
+function injectBookStyles(book) {
+  const styles = book?.styles || []
+  styles.forEach((css, i) => {
+    if (css) injectTemplateCss(`book-style-${i}`, css)
+  })
+}
+
+// 书内已固化的模板样式要注入编辑器 head，保证刷新/切章后 class 样式仍生效
+watch(
+  () => bookStore.activeBook?.styles,
+  (styles) => {
+    if (Array.isArray(styles)) injectBookStyles(bookStore.activeBook)
+  },
+  { immediate: true, deep: true },
 )
 
 onBeforeUnmount(() => {

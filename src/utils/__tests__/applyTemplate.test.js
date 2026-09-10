@@ -56,3 +56,20 @@ describe('applyTemplateToEditor', () => {
     expect(style.textContent).toContain('.x{color:red}')
   })
 })
+
+  it('套用含 <style> 的模板时通过 onStyleCss 回调持久化 CSS', () => {
+    editor = makeEditor()
+    editor.commands.setTextSelection({ from: 1, to: 12 })
+    const cssCalls = []
+    applyTemplateToEditor(
+      editor,
+      {
+        id: 'tpl-x',
+        name: '样式引用',
+        target: 'quote',
+        html: '<style>.tpl-x{color:red}</style><blockquote class="tpl-x">$1</blockquote>',
+      },
+      { onStyleCss: (css) => cssCalls.push(css) },
+    )
+    expect(cssCalls).toEqual(['.tpl-x{color:red}'])
+  })

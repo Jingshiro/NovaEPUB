@@ -78,13 +78,16 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useEditorStore } from '../stores/editor'
 import { useUiStore } from '../stores/ui'
 import { useTemplateStore } from '../stores/templates'
+import { useHistoryStore } from '../stores/history'
 import { useEpubExporter } from '../hooks/useEpubExporter'
+import { flushDraftSaves } from '../utils/draft'
+import { checkEpubStructure } from '../utils/epubCheck'
 import ChapterTree from '../components/sidebar/ChapterTree.vue'
 import MetadataPanel from '../components/sidebar/MetadataPanel.vue'
 import EditorCanvas from '../components/editor/EditorCanvas.vue'
@@ -99,6 +102,7 @@ const bookStore = useBookStore()
 const editorStore = useEditorStore()
 const uiStore = useUiStore()
 const templateStore = useTemplateStore()
+const historyStore = useHistoryStore()
 
 const book = computed(() => bookStore.activeBook || {})
 const activeChapter = computed(() => editorStore.activeChapter)
@@ -128,15 +132,23 @@ function handleTemplateSave(payload) {
 }
 
 onMounted(() => {
+  bookStore.migrateLibrary()
   const loaded = bookStore.loadBook(props.bookId)
   if (!loaded) {
     router.replace({ name: 'library' })
     return
   }
+  historyStore.reset()
   // 默认选中第一个章节
   if (!editorStore.activeChapterId || !loaded.chapters.some((c) => c.id === editorStore.activeChapterId)) {
     editorStore.setActiveChapter(loaded.chapters[0]?.id || null)
   }
+  window.addEventListener('beforeunload', flushDraftSaves)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', flushDraftSaves)
+  flushDraftSaves()
 })
 
 // 预览模式锁定画布
@@ -158,6 +170,20 @@ function goLibrary() {
 
 async function exportBook() {
   if (!book.value) return
+  const report = checkEpubStructure(book.value, { templates: templateStore.templates })
+  if (report.errors.length) {
+    const lines = report.errors.slice(0, 10).map((e) => `- ${e.message}`)
+    const more = report.errors.length > 10 ? `\n… 以及另外 ${report.errors.length - 10} 个问题` : ''
+    window.alert(`导出前自检未通过，请先修复以下 ${report.errors.length} 个问题：\n\n${lines.join('\n')}${more}`)
+    return
+  }
+  if (report.warnings.length) {
+    const lines = report.warnings.slice(0, 8).map((e) => `- ${e.message}`)
+    const more = report.warnings.length > 8 ? `\n… 以及另外 ${report.warnings.length - 8} 条` : ''
+    if (!window.confirm(`导出前发现 ${report.warnings.length} 条提示，仍要导出吗？\n\n${lines.join('\n')}${more}`)) {
+      return
+    }
+  }
   try {
     await doExport(book.value, { templates: templateStore.templates })
   } catch (err) {

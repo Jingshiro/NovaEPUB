@@ -196,13 +196,16 @@ export function resolveApplyRange(editor, target) {
  * 把模板套用到当前选区：提取 <style> 注入 head，替换 $1 为选中内容并插入。
  * 对块级模板且选区仅在一个文本块内时，整块替换该文本块，避免残留空段落。
  */
-export function applyTemplateToEditor(editor, template) {
+export function applyTemplateToEditor(editor, template, options = {}) {
   if (!editor) return false
   const { html, css } = splitTemplate(template.html)
   const selectedHtml = getSelectedHtml(editor)
   const wrapped = wrapWithTemplate(html, selectedHtml)
-  if (css.length) injectTemplateCss(template.id, css.join('\n'))
-
+  if (css.length) {
+    const cssText = css.join('\n')
+    injectTemplateCss(template.id, cssText)
+    if (typeof options.onStyleCss === 'function') options.onStyleCss(cssText)
+  }
   const { $from, $to, empty } = editor.state.selection
   const blockTargets = ['heading', 'paragraph', 'quote', 'list', 'code']
   const isSingleTextBlock =

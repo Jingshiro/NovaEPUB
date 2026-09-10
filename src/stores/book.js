@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { computed, reactive } from 'vue'
 import { uuid } from '../utils/id'
 import { loadLibrary, saveLibrary } from '../utils/storage'
+import { upgradeBook } from '../utils/migrate'
+import { scheduleDraftSave, flushDraftSaves, removeDraft, cancelDraftSave } from '../utils/draft'
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 const DEFAULT_PUBLISH_DATE = new Date().toISOString().slice(0, 10)
@@ -34,6 +36,12 @@ export function createBook(overrides = {}) {
     createdAt: now,
     updatedAt: now,
     chapters: [first],
+    // 书内图片图库：正文中通过 book-image://{id} 引用
+    images: [],
+    // 书内资源库：字体/音频/视频/其他附件，正文或样式中通过 book-resource://{id} 引用
+    resources: [],
+    // 书内已套用模板的样式快照：删除模板后正文样式仍可导出/预览
+    styles: [],
     ...overrides,
   }
 }
@@ -65,23 +73,39 @@ export const useBookStore = defineStore('book', {
     },
   },
   actions: {
-    /** 首次载入 localStorage。 */
+    /** 首次载入 localStorage，并自动修复旧版数据（SVG 封面/MIME）。 */
     ensureLoaded() {
       if (!this.persisted) {
         const loaded = loadLibrary()
         Object.assign(this.library, loaded)
         this.persisted = true
+        this.migrateLibrary()
       }
+    },
+    /** 扫描并修复当前内存中已有的旧数据，修复后写回 localStorage。 */
+    migrateLibrary() {
+      let changed = false
+      for (const book of Object.values(this.library)) {
+        if (upgradeBook(book)) changed = true
+      }
+      if (changed) this.persist()
+      return changed
     },
     persist() {
       saveLibrary(this.library)
+      // 同步写 localStorage 后，再防抖写一份到 IndexedDB，作为崩溃恢复兜底
+      if (this.activeBook) scheduleDraftSave(this.activeBook)
+    },
+    /** 立刻落库未决的草稿（用于离开编辑页/关闭页面前的兜底保存）。 */
+    flushDrafts() {
+      return flushDraftSaves()
     },
     /** 新建书籍并设为当前书。返回 id。 */
     createBook() {
       const book = createBook()
       this.library[book.id] = book
-      this.persist()
       this.activeBookId = book.id
+      this.persist()
       return book.id
     },
     /** 从本地库载入一本书。 */
@@ -96,8 +120,8 @@ export const useBookStore = defineStore('book', {
     importBook(book) {
       this.ensureLoaded()
       this.library[book.id] = book
-      this.persist()
       this.activeBookId = book.id
+      this.persist()
       return book.id
     },
     /** 更新当前书的可序列化字段，并自动更新时间戳。 */
@@ -113,6 +137,29 @@ export const useBookStore = defineStore('book', {
       delete this.library[id]
       if (this.activeBookId === id) this.activeBookId = null
       this.persist()
+      // 同步清理该书的 IndexedDB 草稿与未决写入，避免删除后又被“恢复”回来
+      cancelDraftSave(id)
+      removeDraft(id).catch((err) => console.warn('[draft] 删除草稿失败', err))
+    },
+    /** 把模板样式快照存入当前书，保证删除模板后正文章节样式不丢失。 */
+    addTemplateStyles(cssText) {
+      const book = this.activeBook
+      if (!book || !cssText) return
+      if (!Array.isArray(book.styles)) book.styles = []
+      const css = cssText.trim()
+      if (css && !book.styles.includes(css)) {
+        book.styles.push(css)
+        this.persist()
+      }
+    },
+    /** 向当前书图库追加一张图片。 */
+    addImage(image) {
+      const book = this.activeBook
+      if (!book || !image) return null
+      if (!Array.isArray(book.images)) book.images = []
+      book.images.push(image)
+      this.persist()
+      return image.id
     },
     // ---- 章节操作 ----
     getChapter(id) {

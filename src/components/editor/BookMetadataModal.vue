@@ -10,6 +10,20 @@
         <input v-model="form.author" class="input" />
       </div>
       <div class="flex items-center gap-3">
+        <label class="label">封面</label>
+        <div class="flex flex-1 items-center gap-3">
+          <div class="h-20 w-14 shrink-0 overflow-hidden rounded-sm border border-line bg-bg-muted">
+            <img v-if="form.cover" :src="form.cover" class="h-full w-full object-cover" alt="封面预览" />
+            <div v-else class="flex h-full w-full items-center justify-center text-[10px] text-ink-placeholder">无封面</div>
+          </div>
+          <div class="flex flex-col gap-2">
+            <button class="btn-secondary !px-3 !py-1.5 text-xs" @click="pickCover">选择图片</button>
+            <button v-if="form.cover" class="text-xs text-danger hover:underline" @click="clearCover">移除封面</button>
+          </div>
+          <input ref="coverInput" type="file" accept="image/*" class="hidden" @change="onCoverChange" />
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
         <label class="label">出版日期</label>
         <input v-model="form.publishDate" type="date" class="input" />
       </div>
@@ -30,15 +44,19 @@
 </template>
 
 <script setup>
-import { reactive, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import AppModal from '../common/AppModal.vue'
 import { useBookStore } from '../../stores/book'
 import { useUiStore } from '../../stores/ui'
+import { useHistoryStore } from '../../stores/history'
+import { fileToCompressedDataUrl } from '../../utils/image'
 
 const bookStore = useBookStore()
 const uiStore = useUiStore()
+const historyStore = useHistoryStore()
 
-const form = reactive({ title: '', author: '', publishDate: '', language: '', identifier: '' })
+const form = reactive({ title: '', author: '', publishDate: '', language: '', identifier: '', cover: '' })
+const coverInput = ref(null)
 
 watch(
   () => uiStore.metadataModalOpen,
@@ -51,10 +69,29 @@ watch(
     form.publishDate = book.publishDate
     form.language = book.language
     form.identifier = book.identifier
+    form.cover = book.cover || ''
   },
+  { immediate: true },
 )
 
+function pickCover() {
+  coverInput.value?.click()
+}
+
+async function onCoverChange(e) {
+  const file = e.target.files?.[0]
+  if (file) {
+    form.cover = await fileToCompressedDataUrl(file)
+  }
+  e.target.value = ''
+}
+
+function clearCover() {
+  form.cover = ''
+}
+
 function save() {
+  historyStore.capture('修改书籍信息')
   bookStore.updateBook({ ...form })
   uiStore.closeMetadataModal()
 }

@@ -31,12 +31,14 @@
 
 <script setup>
 import { useEditorStore } from '../../stores/editor'
+import { useBookStore } from '../../stores/book'
 import { useTemplateStore } from '../../stores/templates'
 import { applyTemplateToEditor } from '../../utils/template'
 import { TARGET_LABELS } from '../../utils/template'
 
 const emit = defineEmits(['add', 'edit'])
 const editorStore = useEditorStore()
+const bookStore = useBookStore()
 const templateStore = useTemplateStore()
 templateStore.ensureLoaded()
 
@@ -47,7 +49,9 @@ function label(target) {
 function apply(tpl) {
   if (!editorStore.editor) return
   editorStore.editor.commands.focus()
-  applyTemplateToEditor(editorStore.editor, tpl)
+  applyTemplateToEditor(editorStore.editor, tpl, {
+    onStyleCss: (css) => bookStore.addTemplateStyles(css),
+  })
 }
 
 function remove(tpl) {

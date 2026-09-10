@@ -14,6 +14,8 @@
 import { computed } from 'vue'
 import { buildStylesCss } from '../../utils/epubExporter'
 import { splitTemplate } from '../../utils/template'
+import { resolveContentImages } from '../../utils/image'
+import { resolveContentResources, resolveCssResources } from '../../utils/resource'
 
 const props = defineProps({
   book: { type: Object, default: null },
@@ -22,12 +24,14 @@ const props = defineProps({
 })
 
 const srcdoc = computed(() => {
-  const extra = (props.templates || [])
+  const bookStyles = (props.book?.styles || []).filter(Boolean).join('\n')
+  const templateStyles = (props.templates || [])
     .map((t) => splitTemplate(t.html).css.join('\n'))
     .filter(Boolean)
     .join('\n')
-  const css = buildStylesCss(extra)
-  const content = props.chapter?.content || ''
+  const extra = [bookStyles, templateStyles].filter(Boolean).join('\n')
+  const css = buildStylesCss(resolveCssResources(props.book, extra))
+  const content = resolveContentResources(props.book, resolveContentImages(props.book, props.chapter?.content || ''))
   const title = props.chapter?.title || '空章节'
   const lang = props.book?.language || 'zh-CN'
   return `<!DOCTYPE html>

@@ -108,6 +108,7 @@ const fileInput = ref(null)
 
 onMounted(() => {
   bookStore.ensureLoaded()
+  bookStore.migrateLibrary()
 })
 
 function openBook(id) {
@@ -141,6 +142,12 @@ async function importFile(file) {
   try {
     const book = await parseFile(file)
     const id = bookStore.importBook(book)
+    if (Array.isArray(book.importWarnings) && book.importWarnings.length) {
+      const warnings = book.importWarnings.slice(0, 8)
+      const more = book.importWarnings.length - warnings.length
+      const suffix = more > 0 ? `\n… 以及另外 ${more} 条` : ''
+      window.alert(`导入完成，但遇到一些兼容性问题：\n\n- ${warnings.join('\n- ')}${suffix}`)
+    }
     router.push({ name: 'editor', params: { bookId: id } })
   } catch (err) {
     console.error(err)

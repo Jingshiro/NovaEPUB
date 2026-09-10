@@ -30,10 +30,10 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <span class="mx-1 h-4 w-px bg-line"></span>
-    <button class="tool" title="撤销" @mousedown.prevent @click="editor.chain().focus().undo().run()">
+    <button class="tool" :disabled="!canUndo" title="撤销 (Ctrl+Z)" @mousedown.prevent @click="undo">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
-    <button class="tool" title="重做" @mousedown.prevent @click="editor.chain().focus().redo().run()">
+    <button class="tool" :disabled="!canRedo" title="重做 (Ctrl+Y / Ctrl+Shift+Z)" @mousedown.prevent @click="redo">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m15 14 5-5-5-5M20 9H10a6 6 0 0 0 0 12h3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onFileChange" />
@@ -41,25 +41,95 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { fileToCompressedDataUrl } from '../../utils/image'
+import { useHistoryStore } from '../../stores/history'
 
 const props = defineProps({
   editor: { type: Object, default: null },
 })
 const fileInput = ref(null)
+const historyStore = useHistoryStore()
+const editorCanUndo = ref(false)
+const editorCanRedo = ref(false)
+
+const canUndo = computed(() => historyStore.canUndo || editorCanUndo.value)
+const canRedo = computed(() => historyStore.canRedo || editorCanRedo.value)
+
+function syncEditorHistory() {
+  if (!props.editor) {
+    editorCanUndo.value = false
+    editorCanRedo.value = false
+    return
+  }
+  editorCanUndo.value = props.editor.can().undo()
+  editorCanRedo.value = props.editor.can().redo()
+}
+
+function undo() {
+  // 优先撤销最近的正文编辑；没有正文历史时再撤销章节/元数据等结构操作
+  if (editorCanUndo.value && props.editor) {
+    props.editor.chain().focus().undo().run()
+    return
+  }
+  if (historyStore.canUndo) {
+    historyStore.undo()
+  }
+}
+
+function redo() {
+  if (editorCanRedo.value && props.editor) {
+    props.editor.chain().focus().redo().run()
+    return
+  }
+  if (historyStore.canRedo) {
+    historyStore.redo()
+  }
+}
+
+function onKeydown(e) {
+  const mod = e.ctrlKey || e.metaKey
+  if (!mod) return
+  const tag = document.activeElement?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.classList?.contains('ProseMirror')) return
+  const key = e.key.toLowerCase()
+  if (key === 'z') {
+    e.preventDefault()
+    if (e.shiftKey) redo()
+    else undo()
+  } else if (key === 'y') {
+    e.preventDefault()
+    redo()
+  }
+}
+
+watch(
+  () => props.editor,
+  (editor, oldEditor) => {
+    if (oldEditor) oldEditor.off('transaction', syncEditorHistory)
+    if (editor) {
+      syncEditorHistory()
+      editor.on('transaction', syncEditorHistory)
+    }
+  },
+  { immediate: true },
+)
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  props.editor?.off('transaction', syncEditorHistory)
+})
 
 function pickImage() {
   fileInput.value?.click()
 }
 
-function onFileChange(e) {
+async function onFileChange(e) {
   const file = e.target.files?.[0]
   if (file && props.editor) {
-    const reader = new FileReader()
-    reader.onload = () => {
-      props.editor.chain().focus().setImage({ src: reader.result }).run()
-    }
-    reader.readAsDataURL(file)
+    const src = await fileToCompressedDataUrl(file)
+    props.editor.chain().focus().setImage({ src }).run()
   }
   e.target.value = ''
 }
@@ -71,5 +141,8 @@ function onFileChange(e) {
 }
 .tool.active {
   @apply bg-accent/10 text-accent;
+}
+.tool:disabled {
+  @apply cursor-not-allowed opacity-40 hover:bg-transparent hover:text-ink-secondary;
 }
 </style>
