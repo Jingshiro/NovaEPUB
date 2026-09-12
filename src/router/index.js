@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LibraryView from '../views/LibraryView.vue'
-import EditorView from '../views/EditorView.vue'
+
+// 路由级懒加载：书架与编辑器各自分包，TipTap/JSZip 不再打进首屏
+const LibraryView = () => import('../views/LibraryView.vue')
+const EditorView = () => import('../views/EditorView.vue')
 
 const routes = [
   { path: '/', redirect: '/library' },

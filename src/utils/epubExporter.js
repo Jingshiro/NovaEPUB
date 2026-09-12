@@ -47,6 +47,11 @@ export function buildOpfXml(book, images = [], resources = []) {
     `<dc:language>${escapeXml(book.language || 'zh-CN')}</dc:language>`,
     `<dc:identifier id="book-id">urn:uuid:${escapeXml(book.identifier || book.id)}</dc:identifier>`,
     book.publishDate ? `<dc:date>${escapeXml(book.publishDate)}</dc:date>` : '',
+    // 扩展元数据：有值才写入，保持 OPF 干净
+    book.description ? `<dc:description>${escapeXml(book.description)}</dc:description>` : '',
+    book.publisher ? `<dc:publisher>${escapeXml(book.publisher)}</dc:publisher>` : '',
+    book.subject ? `<dc:subject>${escapeXml(book.subject)}</dc:subject>` : '',
+    book.rights ? `<dc:rights>${escapeXml(book.rights)}</dc:rights>` : '',
   ].filter(Boolean).join('\n    ')
 
   const manifest = [

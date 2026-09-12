@@ -33,29 +33,35 @@
       </div>
 
       <div class="flex items-center gap-2">
-        <button class="btn-secondary" @click="findReplaceOpen = true">
+        <button class="btn-secondary hidden sm:block" @click="findReplaceOpen = true">
           查找替换
         </button>
         <button class="btn-secondary" @click="uiStore.toggleSidebar()">
           目录
         </button>
+        <button class="btn-secondary hidden md:block lg:hidden" @click="uiStore.togglePanel()">
+          样式
+        </button>
         <button class="btn-primary" @click="exportBook">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          导出 EPUB
+          <span class="hidden sm:inline">导出 EPUB</span><span class="sm:hidden">导出</span>
         </button>
       </div>
     </header>
 
-    <!-- 三栏主体 -->
+    <!-- 三栏主体：窄屏时左右面板浮层化 -->
     <div class="flex flex-1 overflow-hidden">
-      <aside v-show="!uiStore.sidebarCollapsed" class="w-60 shrink-0 border-r border-line bg-bg-muted">
+      <aside
+        v-show="!uiStore.sidebarCollapsed"
+        class="w-60 shrink-0 border-r border-line bg-bg-muted max-lg:absolute max-lg:inset-y-14 max-lg:left-0 max-lg:z-30 max-lg:w-64 max-lg:shadow-card"
+      >
         <ChapterTree />
       </aside>
 
       <main class="min-w-0 flex-1 overflow-hidden">
-        <div class="h-full overflow-auto px-8 py-6">
+        <div class="h-full overflow-auto px-3 py-4 lg:px-8 lg:py-6">
           <div v-show="!uiStore.previewMode" class="h-full">
             <EditorCanvas :chapter="activeChapter" @manage-templates="openTemplateEditor(null)" />
           </div>
@@ -65,7 +71,10 @@
         </div>
       </main>
 
-      <aside class="w-[280px] shrink-0 flex flex-col border-l border-line bg-bg-muted">
+      <aside
+        v-show="uiStore.stylePanelOpen"
+        class="w-[280px] shrink-0 flex flex-col border-l border-line bg-bg-muted max-lg:absolute max-lg:inset-y-14 max-lg:right-0 max-lg:z-30 max-lg:w-72 max-lg:shadow-card"
+      >
         <section class="min-h-0 flex-1 overflow-hidden">
           <StylePanel @add="openTemplateEditor(null)" @edit="openTemplateEditor" />
         </section>

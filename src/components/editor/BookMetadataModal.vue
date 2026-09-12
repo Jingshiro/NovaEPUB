@@ -35,6 +35,22 @@
         <label class="label">唯一标识</label>
         <input v-model="form.identifier" class="input" />
       </div>
+      <div class="flex items-start gap-3">
+        <label class="label pt-1.5">简介</label>
+        <textarea v-model="form.description" class="input min-h-20 resize-y" rows="3" placeholder="书籍简介（可选）"></textarea>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="label">出版社</label>
+        <input v-model="form.publisher" class="input" placeholder="可选" />
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="label">主题标签</label>
+        <input v-model="form.subject" class="input" placeholder="多个用逗号分隔（可选）" />
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="label">版权信息</label>
+        <input v-model="form.rights" class="input" placeholder="如 © 2026 XXX（可选）" />
+      </div>
     </div>
     <template #footer>
       <button class="btn-secondary" @click="uiStore.closeMetadataModal()">取消</button>
@@ -55,7 +71,10 @@ const bookStore = useBookStore()
 const uiStore = useUiStore()
 const historyStore = useHistoryStore()
 
-const form = reactive({ title: '', author: '', publishDate: '', language: '', identifier: '', cover: '' })
+const form = reactive({
+  title: '', author: '', publishDate: '', language: '', identifier: '', cover: '',
+  description: '', publisher: '', subject: '', rights: '',
+})
 const coverInput = ref(null)
 
 watch(
@@ -70,6 +89,10 @@ watch(
     form.language = book.language
     form.identifier = book.identifier
     form.cover = book.cover || ''
+    form.description = book.description || ''
+    form.publisher = book.publisher || ''
+    form.subject = book.subject || ''
+    form.rights = book.rights || ''
   },
   { immediate: true },
 )

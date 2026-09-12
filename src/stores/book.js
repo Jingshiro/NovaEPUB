@@ -34,6 +34,10 @@ export function createBook(overrides = {}) {
     publishDate: DEFAULT_PUBLISH_DATE,
     language: DEFAULT_LANGUAGE,
     identifier: uuid(),
+    description: '',
+    publisher: '',
+    subject: '',
+    rights: '',
     cover: null,
     createdAt: now,
     updatedAt: now,
@@ -142,6 +146,29 @@ export const useBookStore = defineStore('book', {
       // 同步清理该书的 IndexedDB 草稿与未决写入，避免删除后又被“恢复”回来
       cancelDraftSave(id)
       removeDraft(id).catch((err) => console.warn('[draft] 删除草稿失败', err))
+    },
+    /**
+     * 批量更新多本书的元数据（书架批量操作用）。
+     * patch 里值为 null 的字段表示「不修改」，跳过；非 null 才覆盖。
+     * 返回实际修改的书 id 数组。
+     */
+    batchUpdateBooks(ids, patch = {}) {
+      const fields = Object.keys(patch).filter((k) => patch[k] !== null && patch[k] !== undefined)
+      if (!Array.isArray(ids) || ids.length === 0 || fields.length === 0) return []
+      const now = new Date().toISOString()
+      const changed = []
+      for (const id of ids) {
+        const book = this.library[id]
+        if (!book) continue
+        for (const key of fields) {
+          if (key === 'id') continue
+          book[key] = patch[key]
+        }
+        book.updatedAt = now
+        changed.push(id)
+      }
+      if (changed.length) this.persist()
+      return changed
     },
     /** 把模板样式快照存入当前书，保证删除模板后正文章节样式不丢失。 */
     addTemplateStyles(cssText) {

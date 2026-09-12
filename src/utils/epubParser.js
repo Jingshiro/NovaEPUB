@@ -101,6 +101,11 @@ async function parseOpf(zip, opfPath) {
   const publishDate = textOf(doc, NS.dc, 'date') || ''
   const language = textOf(doc, NS.dc, 'language') || 'zh-CN'
   const identifier = textOf(doc, NS.dc, 'identifier') || ''
+  // 扩展元数据：简介 / 出版社 / 主题 / 版权（缺失时为空串，导出侧按需写入）
+  const description = textOf(doc, NS.dc, 'description') || ''
+  const publisher = textOf(doc, NS.dc, 'publisher') || ''
+  const subject = textOf(doc, NS.dc, 'subject') || ''
+  const rights = textOf(doc, NS.dc, 'rights') || ''
 
   const manifest = {}
   for (const item of doc.getElementsByTagName('item')) {
@@ -147,7 +152,7 @@ async function parseOpf(zip, opfPath) {
     }
   }
 
-  return { title, author, publishDate, language, identifier, manifest, spineIds, cover, coverType, opfPath }
+  return { title, author, publishDate, language, identifier, description, publisher, subject, rights, manifest, spineIds, cover, coverType, opfPath }
 }
 
 /** 解析 EPUB3 nav.xhtml 目录，返回 { [spineId]: title }。 */
@@ -505,7 +510,7 @@ export async function parseEpubFile(file) {
   const zip = await JSZip.loadAsync(file)
   const warnings = []
   const opfPath = await getOpfPath(zip, warnings)
-  const { title, author, publishDate, language, identifier, manifest, spineIds, cover, coverType } =
+  const { title, author, publishDate, language, identifier, description, publisher, subject, rights, manifest, spineIds, cover, coverType } =
     await parseOpf(zip, opfPath)
 
   const titles = await parseNcx(zip, opfPath, manifest, spineIds, warnings)
@@ -586,6 +591,10 @@ export async function parseEpubFile(file) {
     publishDate: publishDate || '',
     language: language || 'zh-CN',
     identifier: identifier || '',
+    description,
+    publisher,
+    subject,
+    rights,
     cover: coverData,
     chapters: chapters.length ? chapters : [createChapter('第一章', '')],
     images: bookImages,
