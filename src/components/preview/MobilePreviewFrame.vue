@@ -23,7 +23,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { buildStylesCss } from '../../utils/epubExporter'
+import { buildStylesCss } from '../../utils/styles'
 import { splitTemplate } from '../../utils/template'
 import { resolveContentImages } from '../../utils/image'
 import { resolveContentResources, resolveCssResources } from '../../utils/resource'

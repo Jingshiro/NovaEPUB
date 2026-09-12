@@ -187,6 +187,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useEpubParser } from '../hooks/useEpubParser'
+import { serializeLibrary, parseBackup } from '../utils/backup'
 import BatchMetadataModal from '../components/library/BatchMetadataModal.vue'
 import SyncModal from '../components/library/SyncModal.vue'
 
@@ -305,7 +306,6 @@ function pickBackup() {
 }
 
 async function exportBackupFile() {
-  const { serializeLibrary } = await import('../utils/backup')
   const { saveAs } = await import('file-saver')
   const payload = JSON.stringify(serializeLibrary(bookStore.library), null, 2)
   const date = new Date()
@@ -319,7 +319,6 @@ async function onBackupChange(e) {
   e.target.value = ''
   if (!file) return
   try {
-    const { parseBackup } = await import('../utils/backup')
     const text = await file.text()
     const books = parseBackup(text)
     if (!books.length) {
