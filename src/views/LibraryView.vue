@@ -53,10 +53,10 @@
           </div>
           <div>
             <p class="text-base font-medium text-ink">新建 EPUB</p>
-            <p class="text-sm text-ink-secondary mt-1">点击创建一个空白电子书，或拖拽 .epub 文件导入</p>
+            <p class="text-sm text-ink-secondary mt-1">点击创建一个空白电子书，或拖拽 .epub / .txt / .md 文件导入</p>
           </div>
-          <button class="btn-secondary mt-1" @click.stop="pickFile">导入 .epub 文件</button>
-          <p v-if="loading" class="text-sm text-accent">正在解析 EPUB…</p>
+          <button class="btn-secondary mt-1" @click.stop="pickFile">导入 .epub / .txt / .md</button>
+          <p v-if="loading" class="text-sm text-accent">正在导入文件…</p>
           <p v-if="error" class="text-sm text-danger">{{ error }}</p>
         </div>
 
@@ -87,7 +87,7 @@
       </div>
     </main>
 
-    <input ref="fileInput" type="file" accept=".epub,application/epub+zip" class="hidden" @change="onFileChange" />
+    <input ref="fileInput" type="file" accept=".epub,application/epub+zip,.txt,.md,.markdown,text/plain,text/markdown" class="hidden" @change="onFileChange" />
   </div>
 </template>
 
@@ -132,8 +132,10 @@ function onFileChange(e) {
 
 function onDrop(e) {
   dragging.value = false
+  const name = (f) => f.name.toLowerCase()
   const file = Array.from(e.dataTransfer.files || []).find((f) =>
-    f.name.toLowerCase().endsWith('.epub') || f.type === 'application/epub+zip',
+    name(f).endsWith('.epub') || name(f).endsWith('.txt') || name(f).endsWith('.md') || name(f).endsWith('.markdown') ||
+    f.type === 'application/epub+zip' || f.type === 'text/plain' || f.type === 'text/markdown',
   )
   if (file) importFile(file)
 }

@@ -1,7 +1,7 @@
 <template>
   <div ref="editorContainer" class="relative flex h-full flex-col" @contextmenu="onContextMenu">
     <div class="mb-3 shrink-0">
-      <EditorMenuBar :editor="editorStore.editor" />
+      <EditorMenuBar :editor="editorStore.editor" @split-chapter="splitCurrentChapter" @merge-chapter="mergeCurrentChapter" />
     </div>
 
     <div class="flex-1 overflow-y-auto">
@@ -38,9 +38,11 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
 import { useEditorStore } from '../../stores/editor'
 import { useBookStore } from '../../stores/book'
+import { useHistoryStore } from '../../stores/history'
 import { useTemplateStore } from '../../stores/templates'
 import { applyTemplateToEditor, injectTemplateCss } from '../../utils/template'
 import { fileToCompressedDataUrl, normalizeContentImages, resolveContentImages } from '../../utils/image'
+import { splitEditorContentAt } from '../../utils/chapterOps'
 import EditorMenuBar from './EditorMenuBar.vue'
 import BlockPicker from './BlockPicker.vue'
 import TemplatePalette from './TemplatePalette.vue'
@@ -52,6 +54,7 @@ const emit = defineEmits(['manageTemplates'])
 
 const editorStore = useEditorStore()
 const bookStore = useBookStore()
+const historyStore = useHistoryStore()
 const templateStore = useTemplateStore()
 templateStore.ensureLoaded()
 
@@ -201,6 +204,37 @@ function applyTemplate(tpl) {
     onStyleCss: (css) => bookStore.addTemplateStyles(css),
   })
   closeTemplateMenu()
+}
+
+function splitCurrentChapter() {
+  const ed = editorStore.editor
+  const chapter = props.chapter
+  if (!ed || !chapter) return
+  const parts = splitEditorContentAt(ed)
+  if (!parts) {
+    window.alert('请把光标移到需要拆分的正文中间位置')
+    return
+  }
+  historyStore.capture('拆分章节')
+  const newChapter = bookStore.splitChapter(chapter.id, parts.beforeHtml, parts.afterHtml)
+  if (newChapter) editorStore.setActiveChapter(newChapter.id)
+}
+
+function mergeCurrentChapter() {
+  const chapter = props.chapter
+  if (!chapter) return
+  const chapters = bookStore.activeBook?.chapters || []
+  const idx = chapters.findIndex((c) => c.id === chapter.id)
+  if (idx === -1 || idx >= chapters.length - 1) {
+    window.alert('当前已经是最后一章，无法向后合并')
+    return
+  }
+  historyStore.capture('合并章节')
+  bookStore.mergeNextChapter(chapter.id)
+  const updated = bookStore.getChapter(chapter.id)
+  if (editorStore.editor && updated) {
+    editorStore.editor.commands.setContent(resolveContentImages(bookStore.activeBook, updated.content || ''), false)
+  }
 }
 
 function closeTemplateMenu() {

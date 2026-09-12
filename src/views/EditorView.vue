@@ -33,6 +33,9 @@
       </div>
 
       <div class="flex items-center gap-2">
+        <button class="btn-secondary" @click="findReplaceOpen = true">
+          查找替换
+        </button>
         <button class="btn-secondary" @click="uiStore.toggleSidebar()">
           目录
         </button>
@@ -73,6 +76,7 @@
     </div>
 
     <BookMetadataModal />
+    <FindReplaceModal :open="findReplaceOpen" @close="findReplaceOpen = false" />
     <TemplateEditorModal :open="templateModalOpen" :template="editingTemplate" @close="closeTemplateEditor" @save="handleTemplateSave" />
   </div>
 </template>
@@ -94,6 +98,7 @@ import EditorCanvas from '../components/editor/EditorCanvas.vue'
 import MobilePreviewFrame from '../components/preview/MobilePreviewFrame.vue'
 import BookMetadataModal from '../components/editor/BookMetadataModal.vue'
 import TemplateEditorModal from '../components/editor/TemplateEditorModal.vue'
+import FindReplaceModal from '../components/editor/FindReplaceModal.vue'
 import StylePanel from '../components/sidebar/StylePanel.vue'
 
 const props = defineProps({ bookId: { type: String, required: true } })
@@ -110,6 +115,7 @@ const { exportBook: doExport } = useEpubExporter()
 
 const templateModalOpen = ref(false)
 const editingTemplate = ref(null)
+const findReplaceOpen = ref(false)
 
 templateStore.ensureLoaded()
 

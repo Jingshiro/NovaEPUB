@@ -30,6 +30,9 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <span class="mx-1 h-4 w-px bg-line"></span>
+    <button class="tool" title="在当前光标处拆分章节" @mousedown.prevent @click="emit('split-chapter')">拆分</button>
+    <button class="tool" title="与下一章合并" @mousedown.prevent @click="emit('merge-chapter')">合并↓</button>
+    <span class="mx-1 h-4 w-px bg-line"></span>
     <button class="tool" :disabled="!canUndo" title="撤销 (Ctrl+Z)" @mousedown.prevent @click="undo">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
@@ -48,6 +51,7 @@ import { useHistoryStore } from '../../stores/history'
 const props = defineProps({
   editor: { type: Object, default: null },
 })
+const emit = defineEmits(['split-chapter', 'merge-chapter'])
 const fileInput = ref(null)
 const historyStore = useHistoryStore()
 const editorCanUndo = ref(false)

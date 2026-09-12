@@ -12,9 +12,17 @@
       <div
         v-for="(chapter, index) in chapters"
         :key="chapter.id"
+        draggable="true"
         class="group flex items-center gap-2 rounded-card px-2 py-1.5 cursor-pointer transition-colors"
-        :class="chapter.id === activeChapterId ? 'bg-accent/10 text-accent' : 'hover:bg-bg-card'"
+        :class="[
+          chapter.id === activeChapterId ? 'bg-accent/10 text-accent' : 'hover:bg-bg-card',
+          dragIndex === index ? 'opacity-50' : '',
+        ]"
         @click="select(chapter.id)"
+        @dragstart="onDragStart(index)"
+        @dragover.prevent
+        @drop.prevent="onDrop(index)"
+        @dragend="dragIndex = null"
       >
         <span class="w-5 shrink-0 text-xs text-ink-placeholder">{{ index + 1 }}</span>
         <template v-if="editingId === chapter.id">
@@ -58,6 +66,7 @@ const activeChapterId = computed(() => editorStore.activeChapterId)
 const editingId = ref(null)
 const editingTitle = ref('')
 const editingInput = ref(null)
+const dragIndex = ref(null)
 
 function select(id) {
   editorStore.setActiveChapter(id)
@@ -81,6 +90,19 @@ function remove(chapter) {
 function move(id, dir) {
   historyStore.capture('移动章节')
   bookStore.moveChapter(id, dir)
+}
+
+function onDragStart(index) {
+  dragIndex.value = index
+}
+
+function onDrop(index) {
+  const from = dragIndex.value
+  dragIndex.value = null
+  if (from === null || from === index) return
+  historyStore.capture('拖拽排序章节')
+  const id = chapters.value[from]?.id
+  if (id) bookStore.reorderChapter(id, index)
 }
 
 function startRename(chapter) {

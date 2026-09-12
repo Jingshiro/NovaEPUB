@@ -4,6 +4,8 @@ import { uuid } from '../utils/id'
 import { loadLibrary, saveLibrary } from '../utils/storage'
 import { upgradeBook } from '../utils/migrate'
 import { scheduleDraftSave, flushDraftSaves, removeDraft, cancelDraftSave } from '../utils/draft'
+import { replaceAllInBook } from '../utils/search'
+import { mergeHtmlFragments } from '../utils/chapterOps'
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 const DEFAULT_PUBLISH_DATE = new Date().toISOString().slice(0, 10)
@@ -207,6 +209,67 @@ export const useBookStore = defineStore('book', {
       const [chapter] = book.chapters.splice(idx, 1)
       book.chapters.splice(target, 0, chapter)
       this.persist()
+    },
+/** 把章节移动到指定下标（拖拽排序用）。 */
+    reorderChapter(id, targetIndex) {
+      const book = this.activeBook
+      if (!book) return
+      const idx = book.chapters.findIndex((c) => c.id === id)
+      const len = book.chapters.length
+      const target = Math.min(Math.max(0, targetIndex), len - 1)
+      if (idx === -1 || target === idx) return
+      const [chapter] = book.chapters.splice(idx, 1)
+      book.chapters.splice(target, 0, chapter)
+      this.persist()
+    },
+    /**
+     * 在当前章节光标位置拆分章节：原章节保留为前半段，后半段生成新章节。
+     * 返回新章节；无法拆时返回 null。
+     */
+    splitChapter(id, beforeContent, afterContent) {
+      const book = this.activeBook
+      if (!book) return null
+      const idx = book.chapters.findIndex((c) => c.id === id)
+      if (idx === -1) return null
+      const chapter = book.chapters[idx]
+      const now = new Date().toISOString()
+      chapter.content = String(beforeContent ?? chapter.content ?? '')
+      chapter.wordCount = countWords(chapter.content)
+      chapter.updatedAt = now
+      const newChapter = createChapter(chapter.title ? `${chapter.title}（续）` : '续章', String(afterContent ?? ''))
+      newChapter.wordCount = countWords(newChapter.content)
+      book.chapters.splice(idx + 1, 0, newChapter)
+      this.persist()
+      return newChapter
+    },
+    /** 把当前章节与下一章合并，删除下一章；返回当前章节。 */
+    mergeNextChapter(id) {
+      const book = this.activeBook
+      if (!book) return null
+      const idx = book.chapters.findIndex((c) => c.id === id)
+      if (idx === -1 || idx >= book.chapters.length - 1) return null
+      const current = book.chapters[idx]
+      const next = book.chapters[idx + 1]
+      current.content = mergeHtmlFragments(current.content, next.content)
+      current.wordCount = countWords(current.content)
+      current.updatedAt = new Date().toISOString()
+      book.chapters.splice(idx + 1, 1)
+      this.persist()
+      return current
+    },
+    /** 全书查找替换。返回 { count, modifiedChapterIds, modifiedTitles }。 */
+    replaceAllInBook(findText, replaceText, options = {}) {
+      const book = this.activeBook
+      if (!book || !findText) return { count: 0, modifiedChapterIds: [], modifiedTitles: 0 }
+      const result = replaceAllInBook(book, findText, replaceText, options)
+      if (result.count > 0) {
+        book.chapters.forEach((ch) => {
+          ch.wordCount = countWords(ch.content)
+        })
+        book.updatedAt = new Date().toISOString()
+        this.persist()
+      }
+      return result
     },
     /** 保存某章节内容，实时更新字数。 */
     saveChapterContent(id, content) {
