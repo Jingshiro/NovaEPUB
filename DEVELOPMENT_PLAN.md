@@ -7,6 +7,8 @@
 
 ## 一、现状（当前已完成）
 
+> 2026-09-12 P2 推进记录：批量元数据（书架多选 + 批量设置/删除）、扩展元数据字段（简介/出版社/主题/版权，贯穿导入/弹窗/OPF 导出）、路由懒加载 + manualChunks 分包（首屏 608KB → 50KB，TipTap/JSZip 按需加载）、编辑器与书架响应式窄屏布局。106 项测试全绿。剩余 P2：WebDAV/S3 同步（网页端）、书内模板库（B2）、EPUB3 nav（D1）、.novaepub 项目备份（D4）、ESLint/CI（E 阶段）。
+
 - **项目**：纯前端 SPA，Vue 3 + Vite + Pinia + Vue Router + TipTap + JSZip + Tailwind。
 - **书架/导入**：书目列表、新建空白书、拖拽/上传导入 `.epub`，解析 OPF / NCX。
 - **编辑器**：三栏（左目录 / 中画布 / 右样式模板+属性）。
