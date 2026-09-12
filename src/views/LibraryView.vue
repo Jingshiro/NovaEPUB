@@ -21,6 +21,15 @@
         </button>
       </div>
       <nav class="flex-1 overflow-y-auto px-2 pb-4 space-y-1">
+        <button
+          class="ml-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-card px-3 py-2 text-xs text-ink-secondary hover:bg-bg-card hover:text-ink transition-colors"
+          @click="syncModalOpen = true"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M7 17a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.7 1.5A3.5 3.5 0 0 1 17 17H7z" stroke-linejoin="round"/>
+          </svg>
+          云同步（WebDAV / S3）
+        </button>
         <div
           v-for="book in books"
           :key="book.id"
@@ -142,6 +151,8 @@
       @apply="applyBatchMetadata"
     />
 
+    <SyncModal :open="syncModalOpen" @close="syncModalOpen = false" />
+
     <input ref="fileInput" type="file" accept=".epub,application/epub+zip,.txt,.md,.markdown,text/plain,text/markdown" class="hidden" @change="onFileChange" />
   </div>
 </template>
@@ -152,6 +163,7 @@ import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useEpubParser } from '../hooks/useEpubParser'
 import BatchMetadataModal from '../components/library/BatchMetadataModal.vue'
+import SyncModal from '../components/library/SyncModal.vue'
 
 const router = useRouter()
 const bookStore = useBookStore()
@@ -168,6 +180,7 @@ const libraryNavOpen = ref(false)
 const selecting = ref(false)
 const selected = ref([])
 const batchModalOpen = ref(false)
+const syncModalOpen = ref(false)
 
 function toggleSelectMode() {
   selecting.value = !selecting.value
