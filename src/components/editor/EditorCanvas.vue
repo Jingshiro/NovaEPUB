@@ -57,6 +57,7 @@ import { useBookStore } from '../../stores/book'
 import { useHistoryStore } from '../../stores/history'
 import { useTemplateStore } from '../../stores/templates'
 import { applyTemplateToEditor, injectTemplateCss } from '../../utils/template'
+import { StyleAttributes } from '../../utils/tiptapStyleAttrs'
 import { fileToCompressedDataUrl, normalizeContentImages, resolveContentImages } from '../../utils/image'
 import { splitEditorContentAt } from '../../utils/chapterOps'
 import EditorMenuBar from './EditorMenuBar.vue'
@@ -102,6 +103,8 @@ useEditor({
     StarterKit,
     Placeholder.configure({ placeholder: '空章节 · 输入正文，或键入 “/” 查看块类型' }),
     Image.configure({ inline: false, allowBase64: true }),
+    // 格式模板的 class/style 属性存活（否则套用即被 schema 剥掉）
+    StyleAttributes,
     // C3：链接 / 表格 / 行内格式扩展
     Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: null, target: null, class: null } }),
     Underline,

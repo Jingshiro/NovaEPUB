@@ -193,12 +193,67 @@ export function resolveApplyRange(editor, target) {
 }
 
 /**
+ * 序列化当前光标所在文本块的内容（空选区套用时作为 $1）。
+ */
+export function getBlockHtml(editor) {
+  if (!editor) return ''
+  const { $from, $to } = editor.state.selection
+  if (!$from.parent.isTextblock || $from.parent !== $to.parent) return ''
+  const slice = editor.state.doc.slice($from.start(), $from.end())
+  const serializer = DOMSerializer.fromSchema(editor.schema)
+  const div = document.createElement('div')
+  div.appendChild(serializer.serializeFragment(slice.content))
+  return div.innerHTML
+}
+
+/**
+ * 从模板 HTML 片段收集包裹层（figure/span 等非内容元素）的 class 与 style。
+ * 图片模板的视觉样式通常写在 figure 外层或内层 span 上，套用到图片节点时
+ * 需要把它们合并写到 img 本身（figure/span 不是 schema 节点，直接插入会被剥掉）。
+ * 对图片无意义/有害的声明（display、text-align）会被丢弃。
+ */
+export function collectWrapperAttrs(htmlFragment) {
+  const result = { class: '', style: '' }
+  if (!htmlFragment || typeof document === 'undefined') return result
+  const doc = new window.DOMParser().parseFromString(htmlFragment, 'text/html')
+  const walk = (el) => {
+    if (!el || el.nodeType !== 1) return
+    const tag = el.tagName.toLowerCase()
+    if (tag !== 'img' && tag !== 'br') {
+      const cls = el.getAttribute('class')
+      if (cls) result.class = (result.class ? result.class + ' ' : '') + cls
+      const style = el.getAttribute('style')
+      if (style) {
+        style.split(';').forEach((decl) => {
+          const idx = decl.indexOf(':')
+          if (idx === -1) return
+          const key = decl.slice(0, idx).trim().toLowerCase()
+          const val = decl.slice(idx + 1).trim()
+          if (!val || key === 'display' || key === 'text-align') return
+          const full = `${key}:${val}`
+          if (!result.style.includes(`${key}:`)) result.style = (result.style ? result.style + ';' : '') + full
+        })
+      }
+    }
+    Array.from(el.children || []).forEach(walk)
+  }
+  Array.from(doc.body.children || []).forEach(walk)
+  return result
+}
+
+/**
  * 把模板套用到当前选区：提取 <style> 注入 head，替换 $1 为选中内容并插入。
- * 对块级模板且选区仅在一个文本块内时，整块替换该文本块，避免残留空段落。
+ * - 块级模板 + 选区在单个文本块内（含空选区，即光标停在段内）：整块替换，
+ *   $1 取选中内容或整块内容，文字不丢、样式落在块上。
+ * - 图片模板 + 选中图片节点：把模板包裹层的 class/style 合并写到图片节点，
+ *   规避 figure/span 被 schema 剥掉导致模板失效。
+ * - 其余情况按选区插入。
  */
 export function applyTemplateToEditor(editor, template, options = {}) {
   if (!editor) return false
   const { html, css } = splitTemplate(template.html)
+  const selection = editor.state.selection
+  const { empty } = selection
   const selectedHtml = getSelectedHtml(editor)
   const wrapped = wrapWithTemplate(html, selectedHtml)
   if (css.length) {
@@ -206,22 +261,35 @@ export function applyTemplateToEditor(editor, template, options = {}) {
     injectTemplateCss(template.id, cssText)
     if (typeof options.onStyleCss === 'function') options.onStyleCss(cssText)
   }
-  const { $from, $to, empty } = editor.state.selection
   const blockTargets = ['heading', 'paragraph', 'quote', 'list', 'code']
-  const isSingleTextBlock =
-    !empty &&
-    $from.parent === $to.parent &&
-    $from.parent.isTextblock &&
-    blockTargets.includes(template.target)
+  const inSingleTextblock =
+    selection.$from.parent === selection.$to.parent && selection.$from.parent.isTextblock
 
-  if (isSingleTextBlock) {
+  // 图片模板：选中图片节点时，样式直接写到图片上
+  const selectedNode = selection.node
+  if (selectedNode && selectedNode.type.name === 'image') {
+    const attrs = collectWrapperAttrs(html)
+    const patch = {}
+    if (attrs.style) patch.style = attrs.style
+    if (attrs.class) patch.class = attrs.class
+    if (Object.keys(patch).length) {
+      editor.chain().focus().updateAttributes('image', patch).run()
+    }
+    return true
+  }
+
+  if (inSingleTextblock && blockTargets.includes(template.target)) {
+    // 空选区（光标停在段内）也按整块套用，$1 取整块内容，避免插入空样式块
+    const contentHtml = empty ? getBlockHtml(editor) : selectedHtml
+    const blockWrapped = wrapWithTemplate(html, contentHtml)
+    const $from = selection.$from
     const nodePos = $from.before()
     const nodeSize = $from.parent.nodeSize
     editor
       .chain()
       .focus()
       .command(({ tr, dispatch, state }) => {
-        const dom = new window.DOMParser().parseFromString(wrapped, 'text/html')
+        const dom = new window.DOMParser().parseFromString(blockWrapped, 'text/html')
         const parsed = DOMParser.fromSchema(state.schema).parse(dom.body)
         tr.replaceWith(nodePos, nodePos + nodeSize, parsed.content)
         dispatch(tr)
