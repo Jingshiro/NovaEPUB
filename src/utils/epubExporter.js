@@ -168,6 +168,19 @@ body {
 }
 .chapter-body img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
 .chapter-body ul, .chapter-body ol { margin: 0 0 1em 0; padding-left: 1.5em; }
+.chapter-body a { color: #37352F; }
+.chapter-body table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  max-width: 100%;
+}
+.chapter-body th, .chapter-body td {
+  border: 1px solid #E9E8E4;
+  padding: 0.4em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+.chapter-body th { background: #F7F6F3; }
 ${extra}
 `
 }

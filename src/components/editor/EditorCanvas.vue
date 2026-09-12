@@ -30,7 +30,7 @@
       :visible="showTemplateMenu"
       :x="templateMenuPos.x"
       :y="templateMenuPos.y"
-      :templates="templateStore.templates"
+      :templates="paletteTemplates"
       @select="applyTemplate"
       @manage="emit('manageTemplates')"
       @close="closeTemplateMenu"
@@ -39,11 +39,19 @@
 </template>
 
 <script setup>
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import Image from '@tiptap/extension-image'
+import Link from '@tiptap/extension-link'
+import Underline from '@tiptap/extension-underline'
+import Subscript from '@tiptap/extension-subscript'
+import Superscript from '@tiptap/extension-superscript'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableCell from '@tiptap/extension-table-cell'
+import TableHeader from '@tiptap/extension-table-header'
 import { useEditorStore } from '../../stores/editor'
 import { useBookStore } from '../../stores/book'
 import { useHistoryStore } from '../../stores/history'
@@ -83,12 +91,26 @@ const blockOptions = [
   { type: 'codeBlock', label: '代码块', icon: '</>' },
 ]
 
+/** 右键套用菜单用：本书书内模板优先，否则全局模板池（B2）。 */
+const paletteTemplates = computed(() =>
+  templateStore.effectiveTemplates(bookStore.activeBook?.id),
+)
+
 useEditor({
   content: resolveContentImages(bookStore.activeBook || {}, props.chapter?.content || ''),
   extensions: [
     StarterKit,
     Placeholder.configure({ placeholder: '空章节 · 输入正文，或键入 “/” 查看块类型' }),
     Image.configure({ inline: false, allowBase64: true }),
+    // C3：链接 / 表格 / 行内格式扩展
+    Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: null, target: null, class: null } }),
+    Underline,
+    Subscript,
+    Superscript,
+    Table.configure({ resizable: false }),
+    TableRow,
+    TableCell,
+    TableHeader,
   ],
   editorProps: {
     attributes: {
@@ -411,6 +433,39 @@ onBeforeUnmount(() => {
 .prose img {
   max-width: 100%;
   height: auto;
+}
+.prose a {
+  color: #37352f;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  max-width: 100%;
+  font-size: 0.95em;
+}
+.prose th,
+.prose td {
+  border: 1px solid #e9e8e4;
+  padding: 0.4em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  background: #f7f6f3;
+  font-weight: 600;
+}
+.prose .selectedCell:after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(55, 53, 47, 0.08);
+  pointer-events: none;
+}
+.prose th,
+.prose td {
+  position: relative;
 }
 .prose .ProseMirror {
   min-height: 60vh;

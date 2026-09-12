@@ -30,6 +30,24 @@
           </svg>
           云同步（WebDAV / S3）
         </button>
+        <button
+          class="ml-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-card px-3 py-2 text-xs text-ink-secondary hover:bg-bg-card hover:text-ink transition-colors"
+          @click="exportBackupFile"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 15V3m0 0 4 4m-4-4L8 7M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          导出备份（.novaepub）
+        </button>
+        <button
+          class="ml-1 flex w-[calc(100%-8px)] items-center gap-2 rounded-card px-3 py-2 text-xs text-ink-secondary hover:bg-bg-card hover:text-ink transition-colors"
+          @click="pickBackup"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          导入备份（.novaepub）
+        </button>
         <div
           v-for="book in books"
           :key="book.id"
@@ -153,6 +171,13 @@
 
     <SyncModal :open="syncModalOpen" @close="syncModalOpen = false" />
 
+    <input
+      ref="backupInput"
+      type="file"
+      accept=".novaepub,application/json,.json,application/json"
+      class="hidden"
+      @change="onBackupChange"
+    />
     <input ref="fileInput" type="file" accept=".epub,application/epub+zip,.txt,.md,.markdown,text/plain,text/markdown" class="hidden" @change="onFileChange" />
   </div>
 </template>
@@ -269,6 +294,43 @@ async function importFile(file) {
 function confirmDelete(book) {
   if (window.confirm(`确定删除《${book.title}》？`)) {
     bookStore.deleteBook(book.id)
+  }
+}
+
+// ---- D4：.novaepub 本地备份导出 / 导入 ----
+const backupInput = ref(null)
+
+function pickBackup() {
+  backupInput.value?.click()
+}
+
+async function exportBackupFile() {
+  const { serializeLibrary } = await import('../utils/backup')
+  const { saveAs } = await import('file-saver')
+  const payload = JSON.stringify(serializeLibrary(bookStore.library), null, 2)
+  const date = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`
+  saveAs(new Blob([payload], { type: 'application/json' }), `novaepub-${stamp}.novaepub.json`)
+}
+
+async function onBackupChange(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  try {
+    const { parseBackup } = await import('../utils/backup')
+    const text = await file.text()
+    const books = parseBackup(text)
+    if (!books.length) {
+      window.alert('备份里没有任何书籍。')
+      return
+    }
+    if (!window.confirm(`备份包含 ${books.length} 本书。同 id 的书会被备份内容覆盖，确定导入？`)) return
+    for (const book of books) bookStore.importBook(book)
+    window.alert(`已导入 ${books.length} 本书籍。`)
+  } catch (err) {
+    window.alert('导入备份失败：' + (err.message || err))
   }
 }
 </script>

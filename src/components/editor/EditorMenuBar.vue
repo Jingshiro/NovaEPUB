@@ -9,6 +9,21 @@
     <button class="tool" :class="{ active: editor.isActive('strike') }" title="删除线" @mousedown.prevent @click="editor.chain().focus().toggleStrike().run()">
       <s>S</s>
     </button>
+    <button class="tool" :class="{ active: editor.isActive('underline') }" title="下划线" @mousedown.prevent @click="editor.chain().focus().toggleUnderline().run()">
+      <u>U</u>
+    </button>
+    <button class="tool" :class="{ active: editor.isActive('subscript') }" title="下标" @mousedown.prevent @click="editor.chain().focus().toggleSubscript().run()">
+      <sub>₂</sub>
+    </button>
+    <button class="tool" :class="{ active: editor.isActive('superscript') }" title="上标" @mousedown.prevent @click="editor.chain().focus().toggleSuperscript().run()">
+      <sup>²</sup>
+    </button>
+    <button class="tool" :class="{ active: editor.isActive('link') }" title="插入/编辑链接" @mousedown.prevent @click="setOrEditLink">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7.07 0l3.18-3.18a5 5 0 0 0-7.07-7.07L11.3 4.6" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7.07 0l-3.19 3.18a5 5 0 0 0 7.08 7.08l1.87-1.88" stroke-linecap="round"/></svg>
+    </button>
+    <button v-if="editor.isActive('link')" class="tool" title="移除链接" @mousedown.prevent @click="editor.chain().focus().unsetLink().run()">
+      ✗
+    </button>
     <span class="mx-1 h-4 w-px bg-line"></span>
     <button class="tool" :class="{ active: editor.isActive('heading', { level: 1 }) }" title="标题1" @mousedown.prevent @click="editor.chain().focus().toggleHeading({ level: 1 }).run()">H1</button>
     <button class="tool" :class="{ active: editor.isActive('heading', { level: 2 }) }" title="标题2" @mousedown.prevent @click="editor.chain().focus().toggleHeading({ level: 2 }).run()">H2</button>
@@ -29,6 +44,25 @@
     <button class="tool" title="插入图片" @mousedown.prevent @click="pickImage">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
+    <button
+      class="tool"
+      :class="{ active: editor.isActive('table') }"
+      title="插入 3×3 表格"
+      @mousedown.prevent
+      @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16M15 4v16" /></svg>
+    </button>
+    <template v-if="editor.isActive('table')">
+      <button class="tool" title="上方插入一行" @mousedown.prevent @click="editor.chain().focus().addRowBefore().run()">+行↑</button>
+      <button class="tool" title="下方插入一行" @mousedown.prevent @click="editor.chain().focus().addRowAfter().run()">+行↓</button>
+      <button class="tool" title="左侧插入一列" @mousedown.prevent @click="editor.chain().focus().addColumnBefore().run()">+列←</button>
+      <button class="tool" title="右侧插入一列" @mousedown.prevent @click="editor.chain().focus().addColumnAfter().run()">+列→</button>
+      <button class="tool" title="删除当前行" @mousedown.prevent @click="editor.chain().focus().deleteRow().run()">-行</button>
+      <button class="tool" title="删除当前列" @mousedown.prevent @click="editor.chain().focus().deleteColumn().run()">-列</button>
+      <button class="tool" title="切换表头行" :class="{ active: editor.isActive('tableHeader') }" @mousedown.prevent @click="editor.chain().focus().toggleHeaderRow().run()">表头</button>
+      <button class="tool" title="删除整个表格" @mousedown.prevent @click="editor.chain().focus().deleteTable().run()">删表</button>
+    </template>
     <span class="mx-1 h-4 w-px bg-line"></span>
     <button class="tool" title="在当前光标处拆分章节" @mousedown.prevent @click="emit('split-chapter')">拆分</button>
     <button class="tool" title="与下一章合并" @mousedown.prevent @click="emit('merge-chapter')">合并↓</button>
@@ -136,6 +170,23 @@ async function onFileChange(e) {
     props.editor.chain().focus().setImage({ src }).run()
   }
   e.target.value = ''
+}
+
+/** 插入/编辑链接：当前有链接时预填原地址。 */
+function setOrEditLink() {
+  const editor = props.editor
+  if (!editor) return
+  const previous = editor.getAttributes('link').href || ''
+  const url = window.prompt('输入链接地址（留空移除链接）：', previous)
+  if (url === null) return // 取消
+  const trimmed = url.trim()
+  if (!trimmed) {
+    editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    return
+  }
+  const normalized = /^(https?:\/\/|mailto:|#)/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  // 编辑既有链接时选区可能塌缩，先扩展 mark 范围再设置
+  editor.chain().focus().extendMarkRange('link').setLink({ href: normalized }).run()
 }
 </script>
 

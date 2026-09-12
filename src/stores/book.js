@@ -6,6 +6,7 @@ import { upgradeBook } from '../utils/migrate'
 import { scheduleDraftSave, flushDraftSaves, removeDraft, cancelDraftSave } from '../utils/draft'
 import { replaceAllInBook } from '../utils/search'
 import { mergeHtmlFragments } from '../utils/chapterOps'
+import { useTemplateStore } from './templates'
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 const DEFAULT_PUBLISH_DATE = new Date().toISOString().slice(0, 10)
@@ -143,7 +144,12 @@ export const useBookStore = defineStore('book', {
       delete this.library[id]
       if (this.activeBookId === id) this.activeBookId = null
       this.persist()
-      // 同步清理该书的 IndexedDB 草稿与未决写入，避免删除后又被“恢复”回来
+      // 同步清理该书的书内模板与 IndexedDB 草稿与未决写入，避免删除后又被“恢复”回来
+      try {
+        useTemplateStore().clearBookTemplates(id)
+      } catch (err) {
+        console.warn('[book] 清理书内模板失败', err)
+      }
       cancelDraftSave(id)
       removeDraft(id).catch((err) => console.warn('[draft] 删除草稿失败', err))
     },

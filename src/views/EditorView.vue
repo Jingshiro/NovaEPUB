@@ -66,7 +66,7 @@
             <EditorCanvas :chapter="activeChapter" @manage-templates="openTemplateEditor(null)" />
           </div>
           <div v-show="uiStore.previewMode" class="h-full">
-            <MobilePreviewFrame :book="book" :chapter="activeChapter" :templates="templateStore.templates" />
+            <MobilePreviewFrame :book="book" :chapter="activeChapter" :templates="effectiveTemplates" />
           </div>
         </div>
       </main>
@@ -76,7 +76,7 @@
         class="w-[280px] shrink-0 flex flex-col border-l border-line bg-bg-muted max-lg:absolute max-lg:inset-y-14 max-lg:right-0 max-lg:z-30 max-lg:w-72 max-lg:shadow-card"
       >
         <section class="min-h-0 flex-1 overflow-hidden">
-          <StylePanel @add="openTemplateEditor(null)" @edit="openTemplateEditor" />
+          <StylePanel @add="(scope) => openTemplateEditor(null, scope)" @edit="(tpl, scope) => openTemplateEditor(tpl, scope)" />
         </section>
         <section class="shrink-0 border-t border-line">
           <MetadataPanel @export="exportBook" />
@@ -120,16 +120,20 @@ const historyStore = useHistoryStore()
 
 const book = computed(() => bookStore.activeBook || {})
 const activeChapter = computed(() => editorStore.activeChapter)
+/** 实际生效的模板：本书书内模板优先，否则全局模板池（B2）。 */
+const effectiveTemplates = computed(() => templateStore.effectiveTemplates(bookStore.activeBook?.id))
 const { exportBook: doExport } = useEpubExporter()
 
 const templateModalOpen = ref(false)
 const editingTemplate = ref(null)
+const editingScope = ref('global')
 const findReplaceOpen = ref(false)
 
 templateStore.ensureLoaded()
 
-function openTemplateEditor(tpl) {
+function openTemplateEditor(tpl, scope = 'global') {
   editingTemplate.value = tpl || null
+  editingScope.value = scope === 'book' ? 'book' : 'global'
   templateModalOpen.value = true
 }
 
@@ -138,7 +142,14 @@ function closeTemplateEditor() {
 }
 
 function handleTemplateSave(payload) {
-  if (payload.id) {
+  if (editingScope.value === 'book' && bookStore.activeBook) {
+    const bookId = bookStore.activeBook.id
+    if (payload.id) {
+      templateStore.updateBookTemplate(bookId, payload.id, payload)
+    } else {
+      templateStore.addBookTemplate(bookId, payload)
+    }
+  } else if (payload.id) {
     templateStore.updateTemplate(payload.id, payload)
   } else {
     templateStore.addTemplate(payload)
@@ -185,7 +196,7 @@ function goLibrary() {
 
 async function exportBook() {
   if (!book.value) return
-  const report = checkEpubStructure(book.value, { templates: templateStore.templates })
+  const report = checkEpubStructure(book.value, { templates: effectiveTemplates.value })
   if (report.errors.length) {
     const lines = report.errors.slice(0, 10).map((e) => `- ${e.message}`)
     const more = report.errors.length > 10 ? `\n… 以及另外 ${report.errors.length - 10} 个问题` : ''
@@ -200,7 +211,7 @@ async function exportBook() {
     }
   }
   try {
-    await doExport(book.value, { templates: templateStore.templates })
+    await doExport(book.value, { templates: effectiveTemplates.value })
   } catch (err) {
     console.error(err)
     window.alert('导出失败：' + (err.message || err))
