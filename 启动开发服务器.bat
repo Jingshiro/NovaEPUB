@@ -1,16 +1,16 @@
 @echo off
-REM NovaEPUB 开发服务器一键启动
+chcp 65001 >nul
 cd /d "%~dp0"
 
 if not exist node_modules (
-  echo [NovaEPUB] 首次运行，正在安装依赖...
+  echo [NovaEPUB] Installing dependencies...
   call npm install
 )
 
-echo [NovaEPUB] 正在启动开发服务器...
+echo [NovaEPUB] Starting development server...
 echo.
-echo 启动后请浏览器打开: http://localhost:5173/
-echo 按 Ctrl+C 可停止服务器
+echo Open browser at: http://localhost:5173/
+echo Press Ctrl+C to stop.
 echo.
 call npm run dev
 pause

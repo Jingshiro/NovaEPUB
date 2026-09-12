@@ -1,5 +1,13 @@
 <template>
-  <div ref="editorContainer" class="relative flex h-full flex-col" @contextmenu="onContextMenu">
+  <div
+    ref="editorContainer"
+    class="relative flex h-full flex-col select-none"
+    @contextmenu="onContextMenu"
+    @touchstart="onTouchStart"
+    @touchmove.passive="onTouchMove"
+    @touchend="onTouchEnd"
+    @touchcancel="onTouchEnd"
+  >
     <div class="mb-3 shrink-0">
       <EditorMenuBar :editor="editorStore.editor" @split-chapter="splitCurrentChapter" @merge-chapter="mergeCurrentChapter" />
     </div>
@@ -190,13 +198,86 @@ function onContextMenu(e) {
   const hasSelection = !empty || !!ed.state.selection.node
   if (!hasSelection) return
   e.preventDefault()
-  const coords = ed.view.coordsAtPos(from)
+  showTemplateMenuAt(from)
+}
+
+/** 在指定正文位置弹出模板菜单。 */
+function showTemplateMenuAt(pos) {
+  const ed = editorStore.editor
+  if (!ed) return
+  const coords = ed.view.coordsAtPos(pos)
   const rect = ed.view.dom.getBoundingClientRect()
   templateMenuPos.value = {
     x: Math.max(0, coords.left - rect.left),
     y: Math.max(0, coords.bottom - rect.top + 2),
   }
   showTemplateMenu.value = true
+}
+
+// ---- 移动端长按套用模板 ----
+// 移动浏览器 contextmenu 触发不稳定，用 touchstart 计时显式识别长按。
+// 长按期间浏览器原生会拉起文本选择，长按结束时若已有选区则直接弹模板菜单。
+const LONG_PRESS_MS = 500
+let longPressTimer = null
+let longPressFired = false
+let longPressStartPos = null
+
+function onTouchStart(e) {
+  if (e.touches.length !== 1) return
+  const touch = e.touches[0]
+  longPressFired = false
+  longPressStartPos = { x: touch.clientX, y: touch.clientY }
+  clearTimeout(longPressTimer)
+  longPressTimer = setTimeout(() => {
+    longPressFired = true
+    onLongPress(e)
+  }, LONG_PRESS_MS)
+}
+
+function onTouchMove(e) {
+  if (!longPressStartPos || !e.touches.length) return
+  const touch = e.touches[0]
+  const dx = touch.clientX - longPressStartPos.x
+  const dy = touch.clientY - longPressStartPos.y
+  // 手指移动超过阈值视为滚动，取消长按
+  if (dx * dx + dy * dy > 100) {
+    clearTimeout(longPressTimer)
+    longPressTimer = null
+  }
+}
+
+function onTouchEnd() {
+  clearTimeout(longPressTimer)
+  longPressTimer = null
+}
+
+function onLongPress() {
+  const ed = editorStore.editor
+  if (!ed) return
+  // 长按会让浏览器进入原生选择模式，稍等一拍让选区稳定后再检查
+  setTimeout(() => {
+    const edNow = editorStore.editor
+    if (!edNow) return
+    const { from, to, empty } = edNow.state.selection
+    const hasSelection = !empty || !!edNow.state.selection.node
+    if (!hasSelection || from === to) {
+      // 没有形成选区时，尝试选中长按位置所在的词，方便直接套用
+      const pos = edNow.state.selection.from
+      try {
+        const $pos = edNow.state.doc.resolve(pos)
+        const start = $pos.start()
+        const end = $pos.end()
+        if (end > start) {
+          edNow.chain().setTextSelection({ from: start, to: end }).run()
+          showTemplateMenuAt(start)
+        }
+      } catch {
+        /* 位置无效时忽略 */
+      }
+      return
+    }
+    showTemplateMenuAt(from)
+  }, 80)
 }
 
 function applyTemplate(tpl) {
@@ -270,6 +351,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  clearTimeout(longPressTimer)
   editorStore.setEditor(null)
 })
 </script>
