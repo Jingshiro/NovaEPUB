@@ -37,3 +37,6 @@ pnpm-debug.log*
 # test & coverage
 coverage
 .vitest
+
+# internal dev notes
+notes/
