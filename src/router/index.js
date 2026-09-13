@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 
 // 路由级懒加载：书架与编辑器各自分包，TipTap/JSZip 不再打进首屏
 const LibraryView = () => import('../views/LibraryView.vue')
@@ -11,7 +11,8 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  // GitHub Pages 项目页部署在 /NovaEPUB/ 子路径，hash 模式刷新/直达不 404
+  history: createWebHashHistory(),
   routes,
 })
 

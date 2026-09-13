@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
+  // GitHub Actions 部署到项目 Pages 时用子路径 base；本地/自定义域名保持根路径
+  base: process.env.GITHUB_ACTIONS ? '/NovaEPUB/' : '/',
   plugins: [vue()],
   server: {
     port: 5173,
