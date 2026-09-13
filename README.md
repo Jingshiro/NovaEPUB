@@ -99,20 +99,6 @@ npm run build
 
 - 书库存浏览器 `localStorage`（`novaepub:library`），草稿走 `IndexedDB`
 - 云同步配置只存本机，不会上传到任何不属于你的地方
-- 无埋点、无追踪、无账号系统。我能看到的，大概只有你点了个 star 这件值得高兴的事。
-
-## 质量这块
-
-不是摆烂项目：
-
-- **141 项单测 / 组件测试**（Vitest）
-- **33 项端到端测试**（Playwright + 生产构建）：新建 → 编辑 → 预览 → 导出、带图 EPUB 图库回环、模板套了删了样式还在、EPUB 结构规范、草稿崩溃恢复、移动端布局，都跑过。
-- 交付要求：`npm test` 和 `npm run build` 必须全绿。
-
-```bash
-npm test          # 单测
-npm run build     # 构建
-```
 
 ## 目录结构
 
@@ -143,5 +129,3 @@ npm run build     # 构建
 ## License
 
 **AGPL-3.0**。要用要改要分发，请看 [GNU Affero 通用公共许可证 v3.0](https://www.gnu.org/licenses/agpl-3.0)。你要是基于它架了个在线服务或改了再发，那你的版本也得按同样许可开源（含服务端）。
-
-作者保留在别的许可下卖商业授权的权利。真有需求，来聊，价格好说（也不好说）。
