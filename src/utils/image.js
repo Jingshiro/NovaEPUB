@@ -130,3 +130,30 @@ export function normalizeContentImages(book, html = '') {
   )
   return rewritten
 }
+
+/**
+ * 预览专用：把 book-image://{id} 解析为 blob: URL（同资产共享一条短链），
+ * 避免把整本书图片的 dataURL 反复碾进 srcdoc（实测 19MB head 直接卡死 iframe）。
+ * 找不到条目/取不到数据时保持原样。需要已水合的内存数据或资产层可取。
+ */
+export async function resolveContentImagesToBlobUrls(book, html = '') {
+  if (!book || !Array.isArray(book.images) || !html) return html
+  const byId = new Map(book.images.map((img) => [img.id, img]))
+  const { getEntryBlobUrl } = await import('./assetStore')
+  const ids = []
+  const re = /(?:src|href|xlink:href)="book-image:\/\/([^"]+)"/gi
+  let m
+  while ((m = re.exec(html))) {
+    if (!ids.includes(m[1])) ids.push(m[1])
+  }
+  const urlById = new Map()
+  await Promise.all(ids.map(async (id) => {
+    const entry = byId.get(id)
+    const url = entry ? await getEntryBlobUrl(book, entry) : null
+    if (url) urlById.set(id, url)
+  }))
+  return html.replace(/(src|href|xlink:href)="book-image:\/\/([^"]+)"/gi, (match, attr, id) => {
+    const url = urlById.get(id)
+    return url ? `${attr}="${url}"` : match
+  })
+}

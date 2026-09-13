@@ -228,3 +228,53 @@ export async function buildFullBook(book = {}) {
   }
   return clone
 }
+
+// ---- Blob URL 视图层（预览用：同资产共享一条 blob: 链，不再把几十 MB 碾进 HTML） ----
+
+/** dataURL → Blob（零依赖转换）。 */
+export function dataUrlToBlob(dataUrl = '') {
+  const match = String(dataUrl).match(/^data:([^;,]+)?(;base64)?,([\s\S]*)$/)
+  if (!match) return null
+  const mime = match[1] || 'application/octet-stream'
+  if (!match[2]) return new Blob([decodeURIComponent(match[3])], { type: mime })
+  const binary = atob(match[3])
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes], { type: mime })
+}
+
+const blobUrlCache = new Map()
+
+/**
+ * 生成/复用资产的 blob: 链接。
+ * 优先用传入的 dataUrl（水合后的内存数据），否则按 id 从资产层取。
+ * 同一 asset id 在同一本书里共享同一条 URL，重复引用不再放大文档体积。
+ */
+export async function getEntryBlobUrl(book, entry, { dataUrl } = {}) {
+  const bookId = book?.id
+  if (!bookId) return null
+  const id = entry?.id
+  if (!id) return null
+  const key = `${bookId}:${id}`
+  if (blobUrlCache.has(key)) return blobUrlCache.get(key)
+
+  const source = hasData(dataUrl) ? dataUrl : (hasData(entry?.dataUrl) ? entry.dataUrl : null)
+  const resolved = hasData(source) ? source : ((assetsSupported() && !dbOpenFailed) ? await getAssetDataUrl(bookId, id) : null)
+  if (!hasData(resolved)) return null
+  const blob = dataUrlToBlob(resolved)
+  if (!blob) return null
+  const url = URL.createObjectURL(blob)
+  blobUrlCache.set(key, url)
+  return url
+}
+
+/** 删书时清掉对应 blob 缓存并 revoke，避免内存泄漏。 */
+export function purgeEntryBlobUrls(bookId) {
+  const prefix = `${bookId}:`
+  for (const [key, url] of blobUrlCache.entries()) {
+    if (key.startsWith(prefix)) {
+      URL.revokeObjectURL(url)
+      blobUrlCache.delete(key)
+    }
+  }
+}

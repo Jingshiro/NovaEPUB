@@ -104,3 +104,55 @@ export function resolveCssResources(book, css = '') {
     return res?.dataUrl ? `url("${res.dataUrl}")` : match
   })
 }
+
+// ---- Blob URL 版（预览专用：字体/媒体不再内嵌 dataURL，避免 19MB head 卡死 iframe） ----
+
+/** 按 id 取 blob URL（内存 dataUrl 优先，否则资产层按 id 取）。 */
+async function blobUrlFor(book, entry) {
+  const { getEntryBlobUrl } = await import('./assetStore')
+  return getEntryBlobUrl(book, entry)
+}
+
+/** 章节正文里的 book-resource:// 引用 → blob: URL。 */
+export async function resolveContentResourcesToBlobUrls(book, html = '') {
+  if (!book || !Array.isArray(book.resources) || !html) return html
+  const byId = new Map(book.resources.map((r) => [r.id, r]))
+  const ids = []
+  const re = /src="book-resource:\/\/([^"]+)"/gi
+  let m
+  while ((m = re.exec(html))) {
+    if (!ids.includes(m[1])) ids.push(m[1])
+  }
+  const urlById = new Map()
+  await Promise.all(ids.map(async (id) => {
+    const entry = byId.get(id)
+    const url = entry ? await blobUrlFor(book, entry) : null
+    if (url) urlById.set(id, url)
+  }))
+  return html.replace(/src="book-resource:\/\/([^"]+)"/gi, (match, id) => {
+    const url = urlById.get(id)
+    return url ? `src="${url}"` : match
+  })
+}
+
+/** CSS 里的 book-resource:// url() → blob: URL（@font-face 的大 ttf 不再内联）。 */
+export async function resolveCssResourcesToBlobUrls(book, css = '') {
+  if (!book || !Array.isArray(book.resources) || !css) return css
+  const byId = new Map(book.resources.map((r) => [r.id, r]))
+  const ids = []
+  const re = /url\(\s*["']?book-resource:\/\/([^"')]+)["']?\s*\)/gi
+  let m
+  while ((m = re.exec(css))) {
+    if (!ids.includes(m[1])) ids.push(m[1])
+  }
+  const urlById = new Map()
+  await Promise.all(ids.map(async (id) => {
+    const entry = byId.get(id)
+    const url = entry ? await blobUrlFor(book, entry) : null
+    if (url) urlById.set(id, url)
+  }))
+  return css.replace(/url\(\s*["']?book-resource:\/\/([^"')]+)["']?\s*\)/gi, (match, id) => {
+    const url = urlById.get(id)
+    return url ? `url("${url}")` : match
+  })
+}

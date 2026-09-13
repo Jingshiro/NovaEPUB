@@ -22,12 +22,14 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useBookStore } from '../../stores/book'
 import { buildStylesCss } from '../../utils/styles'
 import { splitTemplate } from '../../utils/template'
-import { resolveContentImages } from '../../utils/image'
-import { resolveContentResources, resolveCssResources } from '../../utils/resource'
+import { resolveContentImagesToBlobUrls } from '../../utils/image'
+import { resolveContentResourcesToBlobUrls, resolveCssResourcesToBlobUrls } from '../../utils/resource'
 import { expandHtmlBlocks } from '../../utils/htmlBlock'
+import { getEntryBlobUrl } from '../../utils/assetStore'
 
 const props = defineProps({
   book: { type: Object, default: null },
@@ -35,9 +37,11 @@ const props = defineProps({
   templates: { type: Array, default: () => [] },
 })
 
+const bookStore = useBookStore()
 const chapters = computed(() => props.book?.chapters || [])
 const frameRef = ref(null)
 const currentIndex = ref(0)
+const srcdoc = ref('')
 
 watch(
   () => props.chapter?.id,
@@ -61,36 +65,52 @@ function goIndex(index) {
   }
 }
 
-const srcdoc = computed(() => {
-  const bookStyles = (props.book?.styles || []).filter(Boolean).join('\n')
+let buildId = 0
+
+/** 预览整书 HTML：使用 blob: 资产引用 + 占位解封，避免十多 MB 的内嵌载荷卡死 iframe。 */
+async function rebuildSrcdoc() {
+  const book = props.book
+  if (!book) {
+    srcdoc.value = ''
+    return
+  }
+  const myId = ++buildId
+  await bookStore.ensureHydrated()
+  if (myId !== buildId) return // 期间又有变更，让位给最新一次
+
+  const bookStyles = (book.styles || []).filter(Boolean).join('\n')
   const templateStyles = (props.templates || [])
     .map((t) => splitTemplate(t.html).css.join('\n'))
     .filter(Boolean)
     .join('\n')
   const extra = [bookStyles, templateStyles].filter(Boolean).join('\n')
-  const css = buildStylesCss(resolveCssResources(props.book, extra))
-  const lang = props.book?.language || 'zh-CN'
-  const title = props.book?.title || 'NovaEpub'
+  const css = buildStylesCss(await resolveCssResourcesToBlobUrls(book, extra))
+  const lang = book.language || 'zh-CN'
+  const title = book.title || 'NovaEpub'
 
   const sections = []
-  if (props.book?.cover) {
-    sections.push(`<div class="cover-page"><img src="${escape(props.book.cover)}" alt="封面"/></div>`)
+  if (book.cover) {
+    const coverUrl = await getEntryBlobUrl(book, { id: 'cover' }, { dataUrl: book.cover })
+    sections.push(`<div class="cover-page"><img src="${coverUrl || book.cover}" alt="封面"/></div>`)
   }
   const tocLinks = chapters.value
     .map((ch, i) => `<a href="#chapter-${i + 1}">${i + 1}. ${escape(ch.title || '')}</a>`)
     .join('')
   sections.push(`<nav class="reader-toc"><h2>目录</h2>${tocLinks}</nav>`)
-  chapters.value.forEach((ch, i) => {
-    const content = resolveContentResources(props.book, resolveContentImages(props.book, expandHtmlBlocks(ch?.content || '')))
+  for (const [i, ch] of chapters.value.entries()) {
+    let content = expandHtmlBlocks(ch?.content || '')
+    content = await resolveContentImagesToBlobUrls(book, content)
+    content = await resolveContentResourcesToBlobUrls(book, content)
     sections.push(
       `<section class="chapter" id="chapter-${i + 1}">` +
         `<h1 class="chapter-title">${escape(ch.title || '')}</h1>` +
         `<div class="chapter-body">${content}</div>` +
         `</section>`,
     )
-  })
+    if (myId !== buildId) return // 期间有新版预览请求，放弃旧结果
+  }
 
-  return `<!DOCTYPE html>
+  srcdoc.value = `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
 <meta charset="utf-8"/>
@@ -127,7 +147,16 @@ body { padding: 0 22px 3em; }
 ${sections.join('\n')}
 </body>
 </html>`
-})
+}
+
+// 触发源：书对象 / 当前章 / 模板 / 资产水合 / 章节内容变化（读 content 变化追踪）
+watch(
+  [() => props.book, () => props.chapter?.id, () => props.templates.map((t) => t.updatedAt).join(','),
+   () => chapters.value.map((c) => `${c.updatedAt}:${(c.content || '').length}`).join('|'),
+   () => bookStore.assetsLoaded],
+  rebuildSrcdoc,
+  { immediate: true },
+)
 
 function escape(s = '') {
   return String(s)
