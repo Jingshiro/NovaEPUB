@@ -349,11 +349,11 @@ function closeTemplateMenu() {
 }
 
 // 章节变化或编辑器就绪时，把当前章节内容加载进编辑器（不触发更新写入）。
-// 必须同时等章节 id 与 editor 都就绪：首次进入编辑器时父组件 onMounted
-// 才设置 activeChapterId，若此时 editor 尚未创建，旧实现会漏掉首次加载，
-// 导致导入/打开已有内容的书显示空白。
+// 必须同时等章节 id、editor、资产水合三者就绪：首次进入编辑器时父组件
+// onMounted 才设置 activeChapterId，资产 dataURL 在 IndexedDB 水合完成前
+// 还是空的——watch 需要在水合完成后重跑一次，图片才显示了。
 watch(
-  [() => props.chapter?.id, () => !!editorStore.editor],
+  [() => props.chapter?.id, () => !!editorStore.editor, () => bookStore.assetsLoaded],
   () => {
     const chapter = props.chapter
     if (!chapter || !editorStore.editor) return

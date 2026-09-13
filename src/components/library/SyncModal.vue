@@ -109,7 +109,7 @@ import AppModal from '../common/AppModal.vue'
 import { useBookStore } from '../../stores/book'
 import { testConnection, uploadBackup, listRemoteBackups, downloadBackup } from '../../utils/sync'
 import { loadSyncConfig, saveSyncConfig } from '../../utils/syncConfig'
-import { serializeLibrary, parseBackup } from '../../utils/backup'
+import { buildFullBackupText, parseBackup } from '../../utils/backup'
 
 const props = defineProps({ open: { type: Boolean, default: false } })
 const emit = defineEmits(['close'])
@@ -190,7 +190,7 @@ function loadForSave() {
 function doUpload() {
   return run('upload', async () => {
     saveSyncConfig(loadForSave())
-    const payload = JSON.stringify(serializeLibrary(bookStore.library))
+    const payload = await buildFullBackupText(bookStore.library)
     const name = await uploadBackup(form.provider, currentCfg(), payload)
     listLoaded.value = false
     return `备份完成（${name}）。云端自动保留最近 10 份快照。`

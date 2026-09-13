@@ -7,6 +7,8 @@
 const BACKUP_FORMAT = 'novaepub-library-backup'
 const BACKUP_VERSION = 1
 
+import { buildFullBook } from './assetStore'
+
 /** 把当前书库序列化为备份载荷。 */
 export function serializeLibrary(library = {}) {
   const books = Object.values(library)
@@ -17,6 +19,23 @@ export function serializeLibrary(library = {}) {
     bookCount: books.length,
     books,
   }
+}
+
+/**
+ * 备份/云同步导出专用：先从资产层把二进制回嵌成 dataURL，再序列化。
+ * （store 内存里的 library 在水合后本身是完整的；未水合条目按 id 从 IDB 捞。）
+ */
+export async function buildFullLibrary(library = {}) {
+  const books = []
+  for (const book of Object.values(library)) {
+    books.push(await buildFullBook(book))
+  }
+  return serializeLibrary(Object.fromEntries(books.map((b) => [b.id, b])))
+}
+
+/** 备份/云同步导出专用：完整载荷文本（JSON 字符串）。 */
+export async function buildFullBackupText(library = {}, pretty = false) {
+  return JSON.stringify(await buildFullLibrary(library), null, pretty ? 2 : 0)
 }
 
 /** 解析备份文本，返回书数组；格式不对时抛错。 */
@@ -59,4 +78,10 @@ export function singleBookFileName(title = '') {
 /** 把单本书序列化为 .novaepub 工程文件载荷（复用整库备份格式，bookCount=1）。 */
 export function serializeBook(book = {}) {
   return serializeLibrary({ [book.id]: book })
+}
+
+/** 单书导出专用：带资产回嵌的完整载荷。 */
+export async function buildFullBookBackupText(book = {}) {
+  const payload = serializeLibrary({ [book.id]: await buildFullBook(book) })
+  return JSON.stringify(payload, null, 2)
 }

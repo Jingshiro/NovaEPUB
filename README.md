@@ -97,7 +97,8 @@ npm run build
 
 ## 数据与隐私
 
-- 书库存浏览器 `localStorage`（`novaepub:library`），草稿走 `IndexedDB`
+- 书库走分层存储：`localStorage` 只存索引和章节正文（`novaepub:library`），图片/字体/封面等二进制资产存 `IndexedDB`（`novaepub-assets`，配额大得多），大书不再爆配额
+- 草稿兜底也走 `IndexedDB`（`novaepub-drafts`）
 - 云同步配置只存本机，不会上传到任何不属于你的地方
 
 ## 目录结构

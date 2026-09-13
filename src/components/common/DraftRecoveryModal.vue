@@ -83,6 +83,7 @@ async function restore(draft) {
   try {
     const currentRoute = router.currentRoute.value
     bookStore.importBook(draft.book)
+    await bookStore.hydrateBook(draft.bookId)
     await removeDraft(draft.bookId)
     if (currentRoute.name === 'editor' && currentRoute.params.bookId === draft.bookId) {
       // 正在编辑同一本书时，直接刷新编辑器内容到草稿版本

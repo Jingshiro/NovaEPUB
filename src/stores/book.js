@@ -7,6 +7,7 @@ import { scheduleDraftSave, flushDraftSaves, removeDraft, cancelDraftSave } from
 import { replaceAllInBook } from '../utils/search'
 import { mergeHtmlFragments } from '../utils/chapterOps'
 import { useTemplateStore } from './templates'
+import { hydrateBookAssets, flushBookAssets, leanBookClone, deleteBookAssets } from '../utils/assetStore'
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 const DEFAULT_PUBLISH_DATE = new Date().toISOString().slice(0, 10)
@@ -68,6 +69,8 @@ export const useBookStore = defineStore('book', {
     library: reactive({}),
     activeBookId: null,
     persisted: false,
+    /** 资产水合：IndexedDB 里的图片/字体 dataURL 是否已回填到内存 */
+    assetsLoaded: false,
   }),
   getters: {
     booksList(state) {
@@ -80,14 +83,46 @@ export const useBookStore = defineStore('book', {
     },
   },
   actions: {
-    /** 首次载入 localStorage，并自动修复旧版数据（SVG 封面/MIME）。 */
+    /** 首次载入 localStorage，并自动修复旧版数据（SVG 封面/MIME）＋ 资产水合。 */
     ensureLoaded() {
       if (!this.persisted) {
         const loaded = loadLibrary()
         Object.assign(this.library, loaded)
         this.persisted = true
         this.migrateLibrary()
+        this.startHydration()
       }
+    },
+    /**
+     * 异步把 IndexedDB 里的二进制资产回填到内存（images/resources/cover）。
+     * 启动即触发；读完 assetsLoaded = true（用作重渲染信号）。
+     * store 级只跑一次；promise 复用给编辑器/预览/导出等待。
+     */
+    startHydration() {
+      if (this._hydratePromise) return this._hydratePromise
+      this._hydratePromise = (async () => {
+        try {
+          for (const book of Object.values(this.library)) {
+            await hydrateBookAssets(book)
+          }
+        } catch (err) {
+          console.warn('[book] 资产水合失败', err)
+        } finally {
+          this.assetsLoaded = true
+        }
+      })()
+      return this._hydratePromise
+    },
+    /** 等资产水合完成（编辑器渲染/预览/导出前调用）。 */
+    ensureHydrated() {
+      this.ensureLoaded()
+      return this._hydratePromise || Promise.resolve()
+    },
+    /** 针对某一本已导入的书做资产水合（草稿恢复 / 备份导入的 lean 书用）。 */
+    async hydrateBook(id) {
+      const book = this.library[id]
+      if (!book) return
+      await hydrateBookAssets(book)
     },
     /** 扫描并修复当前内存中已有的旧数据，修复后写回 localStorage。 */
     migrateLibrary() {
@@ -98,10 +133,34 @@ export const useBookStore = defineStore('book', {
       if (changed) this.persist()
       return changed
     },
+    /**
+     * 落库：lean 克隆（已下沉到 IDB 的 dataURL 剥离）→ localStorage；
+     * 同时调度一次资产 flush（新图片/字体写入 IDB，成功后再 re-persist 变瘦）。
+     */
     persist() {
-      saveLibrary(this.library)
+      const lean = {}
+      for (const [id, book] of Object.entries(this.library)) {
+        lean[id] = leanBookClone(book)
+      }
+      saveLibrary(lean)
       // 同步写 localStorage 后，再防抖写一份到 IndexedDB，作为崩溃恢复兜底
-      if (this.activeBook) scheduleDraftSave(this.activeBook)
+      if (this.activeBook) scheduleDraftSave(leanBookClone(this.activeBook))
+      this.scheduleAssetFlush()
+    },
+    /** 资产 flush：防抖合批；flush 成功后 re-persist（第 2 次克隆即变 lean）。 */
+    scheduleAssetFlush() {
+      clearTimeout(this._flushTimer)
+      this._flushTimer = setTimeout(async () => {
+        try {
+          let moved = 0
+          for (const book of Object.values(this.library)) {
+            moved += await flushBookAssets(book)
+          }
+          if (moved > 0) this.persist()
+        } catch (err) {
+          console.warn('[book] 资产下沉 IndexedDB 失败，保持内联存储', err)
+        }
+      }, 300)
     },
     /** 立刻落库未决的草稿（用于离开编辑页/关闭页面前的兜底保存）。 */
     flushDrafts() {
@@ -152,6 +211,8 @@ export const useBookStore = defineStore('book', {
       }
       cancelDraftSave(id)
       removeDraft(id).catch((err) => console.warn('[draft] 删除草稿失败', err))
+      // 清掉资产层的二进制（图片/字体/封面）
+      deleteBookAssets(id).catch((err) => console.warn('[assets] 删除资产失败', err))
     },
     /**
      * 批量更新多本书的元数据（书架批量操作用）。

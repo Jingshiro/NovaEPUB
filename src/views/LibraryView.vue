@@ -209,7 +209,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useEpubParser } from '../hooks/useEpubParser'
-import { serializeLibrary, serializeBook, singleBookFileName, parseBackup } from '../utils/backup'
+import { buildFullBackupText, buildFullBookBackupText, singleBookFileName, parseBackup } from '../utils/backup'
 import BatchMetadataModal from '../components/library/BatchMetadataModal.vue'
 import SyncModal from '../components/library/SyncModal.vue'
 
@@ -329,7 +329,7 @@ function pickBackup() {
 
 async function exportBackupFile() {
   const { saveAs } = await import('file-saver')
-  const payload = JSON.stringify(serializeLibrary(bookStore.library), null, 2)
+  const payload = await buildFullBackupText(bookStore.library, true)
   const date = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`
@@ -340,7 +340,7 @@ async function exportBackupFile() {
 async function exportBookFile(book) {
   if (!book || !book.id) return
   const { saveAs } = await import('file-saver')
-  const payload = JSON.stringify(serializeBook(book), null, 2)
+  const payload = await buildFullBookBackupText(book)
   saveAs(new Blob([payload], { type: 'application/json' }), singleBookFileName(book.title))
 }
 
@@ -356,7 +356,10 @@ async function onBackupChange(e) {
       return
     }
     if (!window.confirm(`备份包含 ${books.length} 本书。同 id 的书会被备份内容覆盖，确定导入？`)) return
-    for (const book of books) bookStore.importBook(book)
+    for (const book of books) {
+      const id = bookStore.importBook(book)
+      await bookStore.hydrateBook(id)
+    }
     window.alert(`已导入 ${books.length} 本书籍。`)
   } catch (err) {
     window.alert('导入备份失败：' + (err.message || err))

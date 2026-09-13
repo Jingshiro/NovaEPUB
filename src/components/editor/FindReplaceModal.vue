@@ -86,7 +86,7 @@ function find() {
   message.value = `找到 ${counts.total} 处（正文 ${counts.content}，标题 ${counts.titles}）`
 }
 
-function replaceAll() {
+async function replaceAll() {
   if (!form.find) return
   const book = bookStore.activeBook
   if (!book) return
@@ -103,6 +103,7 @@ function replaceAll() {
   }
   const activeId = editorStore.activeChapterId
   const modified = new Set(result.modifiedChapterIds || [])
+  await bookStore.ensureHydrated()
   if (activeId && modified.has(activeId)) {
     const chapter = bookStore.getChapter(activeId)
     if (chapter && editorStore.editor) {

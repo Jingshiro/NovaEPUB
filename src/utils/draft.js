@@ -127,6 +127,31 @@ export async function clearDrafts() {
   return true
 }
 
+/**
+ * 生成用于比较的规范化书对象：
+ * - images/resources 的二进制载荷只留「资产签名」（id/文件名/类型/kind），
+ *   剥掉 dataURL 本体和 idb 资产层标记——资产以 id 存放在 IndexedDB，
+ *   「草稿全量 vs 书库瘦身」这种载体差异不该触发恢复提示。
+ *   （图库 id 由内容生成，新内容必然产生新 id，所以 id 清单相等 ≈ 数据相等。）
+ * - cover 只比「有没有」，不比载荷。
+ * - 其余字段（元数据/章节正文/样式）原样参与比较。
+ */
+function canonicalBookForDiff(book = {}) {
+  const out = JSON.parse(JSON.stringify(book))
+  for (const key of ['images', 'resources']) {
+    out[key] = (out[key] || []).map((entry) => ({
+      id: entry?.id,
+      filename: entry?.filename,
+      type: entry?.type,
+      kind: entry?.kind,
+    }))
+  }
+  const coverPresent = out.coverIdb === 1 || (typeof out.cover === 'string' && out.cover.length > 0) ? 1 : 0
+  out.cover = coverPresent
+  delete out.coverIdb
+  return out
+}
+
 /** 比较书籍与草稿是否一致；一致视为已安全落库，不需要恢复提示。 */
 export function isDraftDifferentFromLibrary(libraryBook, draftBook) {
   if (!libraryBook) return true
@@ -137,7 +162,7 @@ export function isDraftDifferentFromLibrary(libraryBook, draftBook) {
   const libraryUpdated = new Date(libraryBook.updatedAt || 0).getTime()
   if (draftUpdated < libraryUpdated) return false
   try {
-    return JSON.stringify(libraryBook) !== JSON.stringify(draftBook)
+    return JSON.stringify(canonicalBookForDiff(libraryBook)) !== JSON.stringify(canonicalBookForDiff(draftBook))
   } catch {
     return true
   }

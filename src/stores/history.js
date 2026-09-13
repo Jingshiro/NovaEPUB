@@ -2,13 +2,9 @@ import { defineStore } from 'pinia'
 import { useBookStore } from './book'
 import { useEditorStore } from './editor'
 import { resolveContentImages } from '../utils/image'
+import { hydrateBookAssets, leanBookClone } from '../utils/assetStore'
 
 const MAX_HISTORY = 50
-
-/** 深拷贝一本书（书籍对象均为可序列化数据）。 */
-function cloneBook(book) {
-  return JSON.parse(JSON.stringify(book || {}))
-}
 
 /** 把快照写回当前 activeBook，保持响应式对象引用不变。 */
 function applyBookSnapshot(bookStore, snapshot) {
@@ -45,34 +41,40 @@ export const useHistoryStore = defineStore('history', {
     canRedo: (state) => state.redoStack.length > 0,
   },
   actions: {
-    /** 记录一次快照；用于章节/元数据等结构操作，正文编辑由 TipTap history 负责。 */
+    /**
+     * 记录一次快照；用于章节/元数据等结构操作，正文编辑由 TipTap history 负责。
+     * 快照必须 lean 克隆：二进制资产只保留 id 引用（数据在 IndexedDB 资产层），
+     * 否则大书每一步结构操作都会深拷贝十几 MB 的 dataURL。
+     */
     capture(label = '修改') {
       const bookStore = useBookStore()
       if (!bookStore.activeBook) return
       this.undoStack.push({
         label,
-        book: cloneBook(bookStore.activeBook),
+        book: leanBookClone(bookStore.activeBook),
       })
       if (this.undoStack.length > MAX_HISTORY) this.undoStack.shift()
       this.redoStack = []
     },
-    undo() {
+    async undo() {
       const bookStore = useBookStore()
       if (!this.canUndo || !bookStore.activeBook) return false
-      const current = cloneBook(bookStore.activeBook)
+      const current = leanBookClone(bookStore.activeBook)
       const previous = this.undoStack.pop()
       this.redoStack.push({ label: previous.label, book: current })
       applyBookSnapshot(bookStore, previous.book)
+      await hydrateBookAssets(bookStore.activeBook)
       refreshEditor(bookStore)
       return true
     },
-    redo() {
+    async redo() {
       const bookStore = useBookStore()
       if (!this.canRedo || !bookStore.activeBook) return false
-      const current = cloneBook(bookStore.activeBook)
+      const current = leanBookClone(bookStore.activeBook)
       const next = this.redoStack.pop()
       this.undoStack.push({ label: next.label, book: current })
       applyBookSnapshot(bookStore, next.book)
+      await hydrateBookAssets(bookStore.activeBook)
       refreshEditor(bookStore)
       return true
     },
