@@ -2,7 +2,7 @@
   <AppModal :open="open" title="云同步（仅网页端）" @close="emit('close')">
     <div class="space-y-5">
       <p class="text-xs text-ink-secondary">
-        把整个书库备份到你的个人网盘/S3。配置只保存在本机；小程序端不支持云同步。
+        把整个书库备份到你的个人网盘/S3。配置只保存在本机。
       </p>
 
       <!-- 提供方选择 -->
