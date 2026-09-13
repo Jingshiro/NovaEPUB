@@ -1,13 +1,24 @@
-# NovaEpub
+<p align="center">
+  <img src="./icon.jpg" width="112" alt="NovaEpub 图标" />
+</p>
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Tests](https://img.shields.io/badge/tests-141%20%2B%2033%20E2E%20passing-brightgreen)]()
-[![Vue 3](https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vuedotjs)]() [![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite)]()
+<h1 align="center">NovaEpub</h1>
+
+<p align="center">
+  <a href="https://jingshiro.github.io/NovaEPUB/"><b>🔗 在线使用</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/Jingshiro/NovaEPUB">GitHub 仓库</a>
+</p>
+
+<p align="center">
+  [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+  [![Tests](https://img.shields.io/badge/tests-141%20%2B%2033%20E2E%20passing-brightgreen)]()
+  [![Vue 3](https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vuedotjs)]()
+  [![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite)]()
+</p>
 
 > 一个能改 EPUB 的小网页（不是小破站，真没那么破）。
 > 纯前端、离线、不收集数据。你的书你自己存着，爱咋咋。
-
-**在线体验（GitHub Pages）：https://jingshiro.github.io/NovaEPUB/**
 
 ## 这玩意是干嘛的
 
