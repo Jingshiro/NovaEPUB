@@ -1,8 +1,8 @@
 <template>
   <div class="flex h-screen flex-col bg-bg">
     <!-- 顶部工具栏 -->
-    <header class="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-line bg-bg-card px-6">
-      <div class="flex min-w-0 items-center gap-3">
+    <header class="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line bg-bg-card px-3 sm:gap-4 sm:px-6">
+      <div class="flex min-w-0 items-center gap-1 sm:gap-3">
         <button class="btn-ghost !px-2" title="返回书架" @click="goLibrary">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M15 18 9 12l6-6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -11,42 +11,65 @@
         <button class="min-w-0 truncate text-base font-medium text-ink hover:text-accent transition-colors" @click="uiStore.openMetadataModal()">
           {{ book.title || '未命名书籍' }}
         </button>
-        <button class="btn-ghost !px-2" title="书籍信息" @click="uiStore.openMetadataModal()">
+        <button class="btn-ghost !px-2 hidden sm:inline-flex" title="书籍信息" @click="uiStore.openMetadataModal()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01" stroke-linecap="round"/>
           </svg>
         </button>
       </div>
 
-      <!-- 编辑/预览切换 -->
-      <div class="flex items-center rounded-btn border border-line bg-bg-muted p-0.5">
+      <!-- 编辑/预览切换（窄屏只留图标） -->
+      <div class="flex shrink-0 items-center rounded-btn border border-line bg-bg-muted p-0.5">
         <button
-          class="rounded-btn px-4 py-1.5 text-sm transition-colors"
+          class="flex items-center gap-1.5 rounded-btn px-2 py-1.5 text-sm transition-colors sm:px-4"
           :class="!uiStore.previewMode ? 'bg-bg-card text-ink shadow-card' : 'text-ink-secondary hover:text-ink'"
+          title="编辑"
           @click="setPreview(false)"
-        >编辑</button>
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16v4z" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="hidden sm:inline">编辑</span>
+        </button>
         <button
-          class="rounded-btn px-4 py-1.5 text-sm transition-colors"
+          class="flex items-center gap-1.5 rounded-btn px-2 py-1.5 text-sm transition-colors sm:px-4"
           :class="uiStore.previewMode ? 'bg-bg-card text-ink shadow-card' : 'text-ink-secondary hover:text-ink'"
+          title="预览"
           @click="setPreview(true)"
-        >预览</button>
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z" stroke-linejoin="round"/>
+            <circle cx="12" cy="12" r="2.6"/>
+          </svg>
+          <span class="hidden sm:inline">预览</span>
+        </button>
       </div>
 
-      <div class="flex items-center gap-2">
-        <button class="btn-secondary hidden sm:block" @click="findReplaceOpen = true">
-          查找替换
+      <div class="flex shrink-0 items-center gap-1 sm:gap-2">
+        <button class="btn-secondary !px-2 sm:!px-3" title="全书查找替换" @click="findReplaceOpen = true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 4.5 4.5" stroke-linecap="round"/>
+          </svg>
+          <span class="hidden sm:inline">查找替换</span>
         </button>
-        <button class="btn-secondary" @click="uiStore.toggleSidebar()">
-          目录
+        <button class="btn-secondary !px-2 sm:!px-3" title="目录" @click="uiStore.toggleSidebar()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round"/>
+          </svg>
+          <span class="hidden sm:inline">目录</span>
         </button>
-        <button class="btn-secondary lg:hidden" @click="uiStore.togglePanel()">
-          样式
+        <button class="btn-secondary !px-2 sm:!px-3 lg:hidden" title="样式模板" @click="uiStore.togglePanel()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M4 7h10M18 7h2M4 17h4M12 17h8M4 12h16" stroke-linecap="round"/>
+            <circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>
+          </svg>
+          <span class="hidden sm:inline">样式</span>
         </button>
-        <button class="btn-primary" @click="exportBook">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <button class="btn-primary !px-2 sm:!px-3" title="导出 EPUB" @click="exportBook">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
             <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span class="hidden sm:inline">导出 EPUB</span><span class="sm:hidden">导出</span>
+          <span class="hidden sm:inline">导出 EPUB</span>
         </button>
       </div>
     </header>
