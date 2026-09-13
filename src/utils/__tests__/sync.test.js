@@ -6,7 +6,7 @@ import { useBookStore } from '../../stores/book'
 // 同步工具测试（node 环境自带 fetch 会被每次 stub 替换）
 import * as sync from '../../utils/sync'
 import * as webdavUtils from '../../utils/webdav'
-import { serializeLibrary, parseBackup, backupFileName } from '../../utils/backup'
+import { serializeLibrary, serializeBook, singleBookFileName, parseBackup, backupFileName } from '../../utils/backup'
 import { loadSyncConfig, saveSyncConfig } from '../../utils/syncConfig'
 
 function mockFetch(handler) {
@@ -36,6 +36,22 @@ describe('backup 序列化/解析', () => {
 
   it('备份文件名形如时间戳', () => {
     expect(backupFileName(new Date('2026-09-12T12:04:05Z'))).toBe('20260912-120405.novaepub.json')
+  })
+
+  it('单书导出：serializeBook 打包 1 本且可被 parseBackup 恢复', () => {
+    const store = useBookStore()
+    const id = store.createBook()
+    store.updateBook({ title: '我的书', author: '镜' })
+    const text = JSON.stringify(serializeBook(store.library[id]))
+    const books = parseBackup(text)
+    expect(books).toHaveLength(1)
+    expect(books[0].id).toBe(id)
+    expect(books[0].title).toBe('我的书')
+  })
+
+  it('单书文件名：书名 + 时间戳，并清理非法字符', () => {
+    const name = singleBookFileName('我的 A/B:C*?"<>|书', new Date(2026, 8, 12, 12, 4, 5))
+    expect(name).toMatch(/^我的 A-B-C------书-20260912-120405\.novaepub\.json$/)
   })
 })
 

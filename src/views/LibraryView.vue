@@ -68,16 +68,28 @@
             <p class="truncate text-sm text-ink">{{ book.title }}</p>
             <p class="truncate text-xs text-ink-secondary">{{ book.author }}</p>
           </div>
-          <button
-            v-if="!selecting"
-            class="opacity-0 group-hover:opacity-100 text-ink-placeholder hover:text-danger transition-opacity"
-            title="删除"
-            @click.stop="confirmDelete(book)"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M4 7h16M9 7V5h6v2m-8 0 1 13h8l1-13" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </button>
+          <div class="flex shrink-0 items-center gap-1">
+            <button
+              v-if="!selecting"
+              class="opacity-0 group-hover:opacity-100 text-ink-placeholder hover:text-accent transition-opacity"
+              title="导出这本书（.novaepub 工程文件）"
+              @click.stop="exportBookFile(book)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <button
+              v-if="!selecting"
+              class="opacity-0 group-hover:opacity-100 text-ink-placeholder hover:text-danger transition-opacity"
+              title="删除"
+              @click.stop="confirmDelete(book)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M4 7h16M9 7V5h6v2m-8 0 1 13h8l1-13" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div v-if="books.length === 0" class="px-3 py-6 text-center text-xs text-ink-placeholder">
           还没有书，从中间新建或导入
@@ -139,6 +151,16 @@
                   <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5" stroke-linejoin="round"/>
                 </svg>
               </div>
+              <button
+                v-if="!selecting"
+                class="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-line bg-bg-card/90 text-ink-placeholder shadow-card backdrop-blur transition-colors hover:text-accent"
+                title="导出这本书（.novaepub 工程文件）"
+                @click.stop="exportBookFile(book)"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
             </div>
             <div class="p-3">
               <p class="truncate text-sm text-ink">{{ book.title }}</p>
@@ -187,7 +209,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useEpubParser } from '../hooks/useEpubParser'
-import { serializeLibrary, parseBackup } from '../utils/backup'
+import { serializeLibrary, serializeBook, singleBookFileName, parseBackup } from '../utils/backup'
 import BatchMetadataModal from '../components/library/BatchMetadataModal.vue'
 import SyncModal from '../components/library/SyncModal.vue'
 
@@ -312,6 +334,14 @@ async function exportBackupFile() {
   const pad = (n) => String(n).padStart(2, '0')
   const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`
   saveAs(new Blob([payload], { type: 'application/json' }), `novaepub-${stamp}.novaepub.json`)
+}
+
+/** 单本书导出为 .novaepub 工程文件（同一备份格式，bookCount=1，可用导入备份恢复）。 */
+async function exportBookFile(book) {
+  if (!book || !book.id) return
+  const { saveAs } = await import('file-saver')
+  const payload = JSON.stringify(serializeBook(book), null, 2)
+  saveAs(new Blob([payload], { type: 'application/json' }), singleBookFileName(book.title))
 }
 
 async function onBackupChange(e) {

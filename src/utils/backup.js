@@ -46,3 +46,20 @@ export function backupFileName(date = new Date()) {
     `-${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}`
   return `${stamp}.novaepub.json`
 }
+
+/** 生成单书工程文件名：书名 + 时间戳，形如 我的书-20260912-120405.novaepub.json。 */
+export function singleBookFileName(title = '', date = new Date()) {
+  const safe = String(title || '未命名书籍')
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80) || '未命名书籍'
+  const pad = (n) => String(n).padStart(2, '0')
+  const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+  return `${safe}-${stamp}.novaepub.json`
+}
+
+/** 把单本书序列化为 .novaepub 工程文件载荷（复用整库备份格式，bookCount=1）。 */
+export function serializeBook(book = {}) {
+  return serializeLibrary({ [book.id]: book })
+}
