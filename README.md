@@ -11,10 +11,10 @@
 </p>
 
 <p align="center">
-  [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-  [![Tests](https://img.shields.io/badge/tests-141%20%2B%2033%20E2E%20passing-brightgreen)]()
-  [![Vue 3](https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vuedotjs)]()
-  [![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite)]()
+  <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3"></a>
+  <a href="https://github.com/Jingshiro/NovaEPUB/actions"><img src="https://img.shields.io/badge/tests-141%20%2B%2033%20E2E%20passing-brightgreen" alt="Tests"></a>
+  <img src="https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vuedotjs" alt="Vue 3">
+  <img src="https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite" alt="Vite">
 </p>
 
 > 一个能改 EPUB 的小网页（不是小破站，真没那么破）。
