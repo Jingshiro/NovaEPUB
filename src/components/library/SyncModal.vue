@@ -107,14 +107,16 @@
 import { reactive, ref, watch } from 'vue'
 import AppModal from '../common/AppModal.vue'
 import { useBookStore } from '../../stores/book'
+import { useTemplateStore } from '../../stores/templates'
 import { testConnection, uploadBackup, listRemoteBackups, downloadBackup } from '../../utils/sync'
 import { loadSyncConfig, saveSyncConfig } from '../../utils/syncConfig'
-import { buildFullBackupText, parseBackup } from '../../utils/backup'
+import { buildFullBackupText, parseBackupBundle } from '../../utils/backup'
 
 const props = defineProps({ open: { type: Boolean, default: false } })
 const emit = defineEmits(['close'])
 
 const bookStore = useBookStore()
+const templateStore = useTemplateStore()
 const busy = ref(false)
 const mode = ref('')
 const status = ref('')
@@ -190,7 +192,11 @@ function loadForSave() {
 function doUpload() {
   return run('upload', async () => {
     saveSyncConfig(loadForSave())
-    const payload = await buildFullBackupText(bookStore.library)
+    templateStore.ensureLoaded()
+    const payload = await buildFullBackupText(bookStore.library, false, {
+      templates: templateStore.templates,
+      bookTemplates: templateStore.bookTemplates,
+    })
     const name = await uploadBackup(form.provider, currentCfg(), payload)
     listLoaded.value = false
     return `备份完成（${name}）。云端自动保留最近 10 份快照。`
@@ -212,14 +218,17 @@ async function doRestore(bk) {
   if (!ok) return
   await run('restore', async () => {
     const text = await downloadBackup(form.provider, c, bk.name)
-    const books = parseBackup(text)
+    const { books, templates, bookTemplates } = parseBackupBundle(text)
     // 覆盖式恢复：清掉本地现有书，再逐本导入
     const ids = bookStore.booksList.map((b) => b.id)
     for (const id of ids) bookStore.deleteBook(id)
     for (const book of books) {
       bookStore.importBook(book)
     }
-    return `已恢复 ${books.length} 本书籍。`
+    const addedTpl = templateStore.importTemplates(templates)
+    templateStore.importBookTemplates(bookTemplates)
+    const tplMsg = addedTpl ? `，新增模板 ${addedTpl} 个` : ''
+    return `已恢复 ${books.length} 本书籍${tplMsg}。`
   })
 }
 </script>

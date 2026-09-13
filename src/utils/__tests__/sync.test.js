@@ -6,7 +6,7 @@ import { useBookStore } from '../../stores/book'
 // 同步工具测试（node 环境自带 fetch 会被每次 stub 替换）
 import * as sync from '../../utils/sync'
 import * as webdavUtils from '../../utils/webdav'
-import { serializeLibrary, serializeBook, singleBookFileName, parseBackup, backupFileName } from '../../utils/backup'
+import { serializeLibrary, serializeBook, singleBookFileName, parseBackup, parseBackupBundle, backupFileName } from '../../utils/backup'
 import { loadSyncConfig, saveSyncConfig } from '../../utils/syncConfig'
 
 function mockFetch(handler) {
@@ -32,6 +32,30 @@ describe('backup 序列化/解析', () => {
   it('拒绝非 NovaEpub 格式 / 坏 JSON', () => {
     expect(() => parseBackup('{"format":"other"}')).toThrow(/format 标识/)
     expect(() => parseBackup('not json')).toThrow(/JSON/)
+  })
+
+  it('备份携带模板池与书内模板库（v2），导入可完整还原', () => {
+    const store = useBookStore()
+    const id = store.createBook()
+    const templates = [{ id: 'tpl-custom-1', name: '我的模板', target: 'quote', html: '<blockquote>$1</blockquote>' }]
+    const bookTemplates = { [id]: [{ id: 'tpl-book-1', name: '书内模板', target: 'paragraph', html: '<p>$1</p>' }] }
+    const text = JSON.stringify(serializeLibrary({ [id]: store.library[id] }, { templates, bookTemplates }))
+    const bundle = parseBackupBundle(text)
+    expect(bundle.books).toHaveLength(1)
+    expect(bundle.templates).toHaveLength(1)
+    expect(bundle.templates[0].name).toBe('我的模板')
+    expect(bundle.bookTemplates[id][0].name).toBe('书内模板')
+  })
+
+  it('兼容旧版 v1 备份：无模板字段时返回空集合', () => {
+    const store = useBookStore()
+    const id = store.createBook()
+    const v1 = JSON.stringify({ format: 'novaepub-library-backup', version: 1, books: [store.library[id]] })
+    const bundle = parseBackupBundle(v1)
+    expect(bundle.books).toHaveLength(1)
+    expect(bundle.templates).toEqual([])
+    expect(bundle.bookTemplates).toEqual({})
+    expect(parseBackup(v1)).toHaveLength(1)
   })
 
   it('备份文件名形如时间戳', () => {

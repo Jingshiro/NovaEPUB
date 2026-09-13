@@ -2,50 +2,53 @@
  * .novaepub 备份格式：整库（所有书）或单书的 JSON 快照，统一用 .novaepub 后缀。
  * 书对象与 localStorage 里存的完全一致（含 images/resources/styles/chapters），
  * 恢复时逐本走 bookStore.importBook（同 id 覆盖）。
+ *
+ * v2（2026-09-13）起额外携带模板池与书内模板库：
+ * 模板原本只存在 localStorage，换浏览器/换 origin（localhost ↔ Pages）就会
+ * 整批看不到；随备份走之后「导出 → 导入」即可把模板一起搬过去。
+ * 解析旧版 v1 备份时模板字段缺省为空，向后兼容。
  */
-
-const BACKUP_FORMAT = 'novaepub-library-backup'
-const BACKUP_VERSION = 1
 
 import { buildFullBook } from './assetStore'
 
-/** 把当前书库序列化为备份载荷。 */
-export function serializeLibrary(library = {}) {
+const BACKUP_FORMAT = 'novaepub-library-backup'
+const BACKUP_VERSION = 2
+
+/** 把当前书库序列化为备份载荷（extra 可带 templates / bookTemplates）。 */
+export function serializeLibrary(library = {}, extra = {}) {
   const books = Object.values(library)
-  return {
+  const payload = {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exportedAt: new Date().toISOString(),
     bookCount: books.length,
     books,
   }
+  const templates = Array.isArray(extra.templates) ? extra.templates : null
+  const bookTemplates = extra.bookTemplates && typeof extra.bookTemplates === 'object' ? extra.bookTemplates : null
+  if (templates && templates.length) payload.templates = templates
+  if (bookTemplates && Object.keys(bookTemplates).length) payload.bookTemplates = bookTemplates
+  return payload
 }
 
 /**
  * 备份/云同步导出专用：先从资产层把二进制回嵌成 dataURL，再序列化。
  * （store 内存里的 library 在水合后本身是完整的；未水合条目按 id 从 IDB 捞。）
  */
-export async function buildFullLibrary(library = {}) {
+export async function buildFullLibrary(library = {}, extra = {}) {
   const books = []
   for (const book of Object.values(library)) {
     books.push(await buildFullBook(book))
   }
-  return serializeLibrary(Object.fromEntries(books.map((b) => [b.id, b])))
+  return serializeLibrary(Object.fromEntries(books.map((b) => [b.id, b])), extra)
 }
 
 /** 备份/云同步导出专用：完整载荷文本（JSON 字符串）。 */
-export async function buildFullBackupText(library = {}, pretty = false) {
-  return JSON.stringify(await buildFullLibrary(library), null, pretty ? 2 : 0)
+export async function buildFullBackupText(library = {}, pretty = false, extra = {}) {
+  return JSON.stringify(await buildFullLibrary(library, extra), null, pretty ? 2 : 0)
 }
 
-/** 解析备份文本，返回书数组；格式不对时抛错。 */
-export function parseBackup(text = '') {
-  let payload
-  try {
-    payload = JSON.parse(text)
-  } catch (err) {
-    throw new Error('备份文件不是合法的 JSON')
-  }
+function validatePayload(payload) {
   if (!payload || payload.format !== BACKUP_FORMAT || typeof payload.version !== 'number') {
     throw new Error('这不是 NovaEpub 的备份文件（缺少 format 标识）')
   }
@@ -55,7 +58,30 @@ export function parseBackup(text = '') {
   if (!Array.isArray(payload.books)) {
     throw new Error('备份文件缺少 books 数组')
   }
-  return payload.books
+}
+
+/** 解析备份文本，返回书数组；格式不对时抛错。（向后兼容的旧入口） */
+export function parseBackup(text = '') {
+  return parseBackupBundle(text).books
+}
+
+/**
+ * 解析完整备份包：{ books, templates, bookTemplates }。
+ * v1 备份没有模板字段，返回空数组/空对象，行为等同旧版。
+ */
+export function parseBackupBundle(text = '') {
+  let payload
+  try {
+    payload = JSON.parse(text)
+  } catch (err) {
+    throw new Error('备份文件不是合法的 JSON')
+  }
+  validatePayload(payload)
+  return {
+    books: payload.books,
+    templates: Array.isArray(payload.templates) ? payload.templates : [],
+    bookTemplates: payload.bookTemplates && typeof payload.bookTemplates === 'object' ? payload.bookTemplates : {},
+  }
 }
 
 /** 生成备份文件名（不带目录前缀），形如 20260912-120405.novaepub。 */

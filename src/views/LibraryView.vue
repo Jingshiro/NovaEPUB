@@ -208,13 +208,15 @@
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
+import { useTemplateStore } from '../stores/templates'
 import { useEpubParser } from '../hooks/useEpubParser'
-import { buildFullBackupText, buildFullBookBackupText, singleBookFileName, parseBackup } from '../utils/backup'
+import { buildFullBackupText, buildFullBookBackupText, singleBookFileName, parseBackupBundle } from '../utils/backup'
 import BatchMetadataModal from '../components/library/BatchMetadataModal.vue'
 import SyncModal from '../components/library/SyncModal.vue'
 
 const router = useRouter()
 const bookStore = useBookStore()
+const templateStore = useTemplateStore()
 const { parsing, error, parseFile } = useEpubParser()
 
 const books = computed(() => bookStore.booksList)
@@ -329,7 +331,12 @@ function pickBackup() {
 
 async function exportBackupFile() {
   const { saveAs } = await import('file-saver')
-  const payload = await buildFullBackupText(bookStore.library, true)
+  // 模板 store 可能尚未加载（bookShelf 页不经过编辑器），先 ensureLoaded 再打包
+  templateStore.ensureLoaded()
+  const payload = await buildFullBackupText(bookStore.library, true, {
+    templates: templateStore.templates,
+    bookTemplates: templateStore.bookTemplates,
+  })
   const date = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`
@@ -350,17 +357,21 @@ async function onBackupChange(e) {
   if (!file) return
   try {
     const text = await file.text()
-    const books = parseBackup(text)
+    const { books, templates, bookTemplates } = parseBackupBundle(text)
     if (!books.length) {
       window.alert('备份里没有任何书籍。')
       return
     }
-    if (!window.confirm(`备份包含 ${books.length} 本书。同 id 的书会被备份内容覆盖，确定导入？`)) return
+    const tplNote = templates.length ? `，以及 ${templates.length} 个全局模板` : ''
+    if (!window.confirm(`备份包含 ${books.length} 本书${tplNote}。同 id 的书会被备份内容覆盖，确定导入？`)) return
     for (const book of books) {
       const id = bookStore.importBook(book)
       await bookStore.hydrateBook(id)
     }
-    window.alert(`已导入 ${books.length} 本书籍。`)
+    const addedTpl = templateStore.importTemplates(templates)
+    const addedBookTpl = templateStore.importBookTemplates(bookTemplates)
+    const tplMsg = addedTpl || addedBookTpl ? `，新增模板 ${addedTpl + addedBookTpl} 个` : ''
+    window.alert(`已导入 ${books.length} 本书籍${tplMsg}。`)
   } catch (err) {
     window.alert('导入备份失败：' + (err.message || err))
   }

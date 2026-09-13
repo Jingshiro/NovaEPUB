@@ -110,6 +110,47 @@ export const useTemplateStore = defineStore('templates', {
     saveBookTemplates() {
       persistBookTemplates(this.bookTemplates)
     },
+    /**
+     * 从备份导入模板池：按 id 合并，已存在的跳过（不覆盖本地改动）。
+     * 返回新增条数。
+     */
+    importTemplates(list = []) {
+      this.ensureLoaded()
+      if (!Array.isArray(list) || !list.length) return 0
+      const existing = new Set(this.templates.map((t) => t.id))
+      let added = 0
+      for (const tpl of list) {
+        if (!tpl || !tpl.id || existing.has(tpl.id)) continue
+        this.templates.push({ custom: true, ...tpl })
+        existing.add(tpl.id)
+        added += 1
+      }
+      if (added) this.save()
+      return added
+    },
+    /**
+     * 从备份导入书内模板库：按 bookId + 模板 id 合并，已存在的跳过。
+     * 返回新增条数。
+     */
+    importBookTemplates(map = {}) {
+      this.ensureLoaded()
+      if (!map || typeof map !== 'object') return 0
+      let added = 0
+      for (const [bookId, list] of Object.entries(map)) {
+        if (!bookId || !Array.isArray(list) || !list.length) continue
+        const bucket = this.bookTemplates[bookId] || []
+        const existing = new Set(bucket.map((t) => t.id))
+        for (const tpl of list) {
+          if (!tpl || !tpl.id || existing.has(tpl.id)) continue
+          bucket.push({ custom: true, ...tpl })
+          existing.add(tpl.id)
+          added += 1
+        }
+        if (bucket.length) this.bookTemplates[bookId] = bucket
+      }
+      if (added) this.saveBookTemplates()
+      return added
+    },
     addTemplate(partial = {}) {
       this.ensureLoaded()
       const tpl = {
