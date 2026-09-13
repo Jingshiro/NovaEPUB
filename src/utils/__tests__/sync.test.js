@@ -40,11 +40,11 @@ describe('backup 序列化/解析', () => {
 })
 
 describe('syncConfig 存取', () => {
-  it('默认配置是 WebDAV + 坚果云地址', () => {
+  it('默认配置是 WebDAV，服务器地址留空（不预设服务商）', () => {
     localStorage.clear()
     const cfg = loadSyncConfig()
     expect(cfg.provider).toBe('webdav')
-    expect(cfg.webdav.serverUrl).toBe('https://dav.jianguoyun.com/dav/')
+    expect(cfg.webdav.serverUrl).toBe('')
   })
 
   it('save 后 load 读回相同内容', () => {

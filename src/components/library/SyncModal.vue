@@ -13,7 +13,7 @@
             class="rounded-btn px-3 py-1 text-xs transition-colors"
             :class="form.provider === 'webdav' ? 'bg-bg-card text-ink shadow-card' : 'text-ink-secondary'"
             @click="form.provider = 'webdav'"
-          >WebDAV（坚果云）</button>
+          >WebDAV</button>
           <button
             class="rounded-btn px-3 py-1 text-xs transition-colors"
             :class="form.provider === 's3' ? 'bg-bg-card text-ink shadow-card' : 'text-ink-secondary'"
@@ -26,7 +26,7 @@
       <div v-if="form.provider === 'webdav'" class="space-y-3">
         <div class="flex items-center gap-3">
           <label class="label">服务器</label>
-          <input v-model="form.webdav.serverUrl" class="input" placeholder="https://dav.jianguoyun.com/dav/" />
+          <input v-model="form.webdav.serverUrl" class="input" placeholder="https://dav.example.com/dav/" />
         </div>
         <div class="flex items-center gap-3">
           <label class="label">账号</label>
@@ -40,7 +40,7 @@
           <label class="label">目录</label>
           <input v-model="form.webdav.folder" class="input" placeholder="NovaEPUB" />
         </div>
-        <p class="text-xs text-ink-placeholder">坚果云：账号填注册邮箱，密码在「安全选项 → 应用密码」里生成。</p>
+        <p class="text-xs text-ink-placeholder">账号一般是注册邮箱；多数服务需要「应用密码」而不是登录密码（如坚果云在「安全选项」里生成）。</p>
       </div>
 
       <!-- S3 配置 -->

@@ -4,7 +4,8 @@ const KEY = 'novaepub:sync'
 
 const DEFAULT_CONFIG = {
   provider: 'webdav',
-  webdav: { serverUrl: 'https://dav.jianguoyun.com/dav/', username: '', password: '', folder: 'NovaEPUB' },
+  // 不预设任何服务商：服务器地址由用户自己填（WebDAV / S3 同理）。
+  webdav: { serverUrl: '', username: '', password: '', folder: 'NovaEPUB' },
   s3: { endpoint: '', region: '', bucket: '', accessKeyId: '', secretAccessKey: '', folder: 'NovaEPUB' },
 }
 

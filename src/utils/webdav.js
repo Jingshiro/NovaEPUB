@@ -1,6 +1,6 @@
 /**
- * WebDAV 客户端（fetch 实现），坚果云等标准 WebDAV 服务可用。
- * 仅网页端使用：需要浏览器允许跨域（坚果云允许直接网页访问）。
+ * WebDAV 客户端（fetch 实现），适用于任意标准 WebDAV 服务。
+ * 仅网页端使用：需要浏览器允许跨域（多数个人网盘服务允许直接网页访问）。
  *
  * cfg: { serverUrl, username, password, folder }
  */
@@ -51,7 +51,7 @@ export async function davTestConnection(cfg, fetchImpl = fetch) {
       '<?xml version="1.0"?><D:propfind xmlns:D="DAV:"><D:prop><D:resourcetype/></D:prop></D:propfind>',
   }, fetchImpl)
   if (res.status === 401) throw new Error('账号或密码错误（401）')
-  if (res.status === 403) throw new Error('没有访问权限（403），坚果云请使用「应用密码」而不是登录密码')
+  if (res.status === 403) throw new Error('没有访问权限（403），使用「应用密码」而不是登录密码')
   if (res.status >= 400) throw new Error(`服务器响应 ${res.status}，请检查地址是否为 WebDAV 服务`)
   return true
 }
