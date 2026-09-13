@@ -7,6 +7,8 @@
  * - 封面 dataURL 是否合法图片
  */
 
+import { expandHtmlBlocks } from './htmlBlock'
+
 export function createIssue(level, code, message) {
   return { level, code, message }
 }
@@ -153,7 +155,8 @@ export function checkEpubStructure(book, options = {}) {
   const resourceIdSet = new Set(resourceIds)
   chapters.forEach((ch, i) => {
     if (!ch || typeof ch.content !== 'string') return
-    const content = ch.content
+    // htmlBlock 占位里编码着真实的图片/资源引用，先解封再扫描，避免误报缺失
+    const content = expandHtmlBlocks(ch.content)
     const label = `第 ${i + 1} 章「${ch.title || ''}」`
     for (const id of collectContentImageIds(content)) {
       if (!imageIdSet.has(id)) issues.push(createIssue('error', 'missing-image-ref', `${label}引用了不存在的图片：${id}`))

@@ -66,6 +66,7 @@
     <span class="mx-1 h-4 w-px bg-line"></span>
     <button class="tool" title="在当前光标处拆分章节" @mousedown.prevent @click="emit('split-chapter')">拆分</button>
     <button class="tool" title="与下一章合并" @mousedown.prevent @click="emit('merge-chapter')">合并↓</button>
+    <button v-if="editor.isActive('htmlBlock')" class="tool" title="编辑该 HTML 块的原始结构" @mousedown.prevent @click="editHtmlBlock">HTML</button>
     <span class="mx-1 h-4 w-px bg-line"></span>
     <button class="tool" :disabled="!canUndo" title="撤销 (Ctrl+Z)" @mousedown.prevent @click="undo">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -161,6 +162,22 @@ onBeforeUnmount(() => {
 
 function pickImage() {
   fileInput.value?.click()
+}
+
+/** 编辑选中的 HTML 块：弹窗展示原始结构，确认后整体替换。 */
+function editHtmlBlock() {
+  const editor = props.editor
+  if (!editor) return
+  const encoded = editor.getAttributes('htmlBlock').html || ''
+  let raw = '';
+  try {
+    raw = decodeURIComponent(encoded)
+  } catch {
+    raw = encoded
+  }
+  const next = window.prompt('编辑该 HTML 块的原始结构（改坏可撤销）：', raw)
+  if (next == null) return
+  editor.chain().focus().updateAttributes('htmlBlock', { html: encodeURIComponent(next) }).run()
 }
 
 async function onFileChange(e) {

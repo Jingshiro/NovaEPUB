@@ -58,6 +58,8 @@ import { useHistoryStore } from '../../stores/history'
 import { useTemplateStore } from '../../stores/templates'
 import { applyTemplateToEditor, injectTemplateCss } from '../../utils/template'
 import { scopeCss } from '../../utils/cssScope'
+import { embedHtmlBlocks } from '../../utils/htmlBlock'
+import { HtmlBlock } from '../../utils/tiptapHtmlBlock'
 import { StyleAttributes } from '../../utils/tiptapStyleAttrs'
 import { fileToCompressedDataUrl, normalizeContentImages, resolveContentImages } from '../../utils/image'
 import { splitEditorContentAt } from '../../utils/chapterOps'
@@ -99,13 +101,15 @@ const paletteTemplates = computed(() =>
 )
 
 useEditor({
-  content: resolveContentImages(bookStore.activeBook || {}, props.chapter?.content || ''),
+  content: loadEditorHtml(props.chapter?.content || ''),
   extensions: [
     StarterKit,
     Placeholder.configure({ placeholder: '空章节 · 输入正文，或键入 “/” 查看块类型' }),
     Image.configure({ inline: false, allowBase64: true }),
     // 格式模板的 class/style 属性存活（否则套用即被 schema 剥掉）
     StyleAttributes,
+    // schema 外 HTML 结构的原子落块（导入书内置排版不被剥光）
+    HtmlBlock,
     // C3：链接 / 表格 / 行内格式扩展
     Link.configure({ openOnClick: false, autolink: true, HTMLAttributes: { rel: null, target: null, class: null } }),
     Underline,
@@ -157,6 +161,16 @@ useEditor({
     editorStore.setEditor(editor)
   },
 })
+
+/**
+ * 编辑器显示 HTML 的统一入口：
+ * 1) schema 外的整块 HTML 结构封装为 htmlBlock 原子节点（幂等，兼容老数据）；
+ * 2) 章节里的书内图片/资源引用回填为可显示的 dataURL。
+ */
+function loadEditorHtml(content = '') {
+  const book = bookStore.activeBook || {}
+  return resolveContentImages(book, embedHtmlBlocks(content))
+}
 
 function handleEditorUpdate(ed) {
   if (!props.chapter) return
@@ -340,7 +354,7 @@ function mergeCurrentChapter() {
   bookStore.mergeNextChapter(chapter.id)
   const updated = bookStore.getChapter(chapter.id)
   if (editorStore.editor && updated) {
-    editorStore.editor.commands.setContent(resolveContentImages(bookStore.activeBook, updated.content || ''), false)
+    editorStore.editor.commands.setContent(loadEditorHtml(updated.content || ''), false)
   }
 }
 
@@ -357,7 +371,7 @@ watch(
   () => {
     const chapter = props.chapter
     if (!chapter || !editorStore.editor) return
-    const html = resolveContentImages(bookStore.activeBook || {}, chapter.content || '')
+    const html = loadEditorHtml(chapter.content || '')
     editorStore.editor.commands.setContent(html, false)
   },
   { immediate: true },

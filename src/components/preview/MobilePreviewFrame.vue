@@ -27,6 +27,7 @@ import { buildStylesCss } from '../../utils/styles'
 import { splitTemplate } from '../../utils/template'
 import { resolveContentImages } from '../../utils/image'
 import { resolveContentResources, resolveCssResources } from '../../utils/resource'
+import { expandHtmlBlocks } from '../../utils/htmlBlock'
 
 const props = defineProps({
   book: { type: Object, default: null },
@@ -80,7 +81,7 @@ const srcdoc = computed(() => {
     .join('')
   sections.push(`<nav class="reader-toc"><h2>目录</h2>${tocLinks}</nav>`)
   chapters.value.forEach((ch, i) => {
-    const content = resolveContentResources(props.book, resolveContentImages(props.book, ch?.content || ''))
+    const content = resolveContentResources(props.book, resolveContentImages(props.book, expandHtmlBlocks(ch?.content || '')))
     sections.push(
       `<section class="chapter" id="chapter-${i + 1}">` +
         `<h1 class="chapter-title">${escape(ch.title || '')}</h1>` +

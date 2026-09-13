@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { splitTemplate } from './template'
+import { expandHtmlBlocks } from './htmlBlock'
 
 /** 转义 XML 特殊字符。 */
 export function escapeXml(str = '') {
@@ -258,7 +259,9 @@ export async function exportEpubFile(book, { download = true, templates = [] } =
   const publishedMap = {}
   let imgCounter = 0
   const chapters = (book.chapters || []).map((ch) => {
-    let content = extractInlineStyle(ch.content || '', extraCss)
+    // 先把 htmlBlock 占位解封成真实结构（图片/资源改写要看到其中的引用）
+    let content = expandHtmlBlocks(ch.content || '')
+    content = extractInlineStyle(content, extraCss)
     content = rewriteBookImageRefs(content, book, publishedImages, publishedMap)
     content = rewriteBookResourceRefs(content, book)
     const res = rewriteImages(content, imgCounter)
