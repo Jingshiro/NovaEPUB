@@ -35,7 +35,7 @@ describe('backup 序列化/解析', () => {
   })
 
   it('备份文件名形如时间戳', () => {
-    expect(backupFileName(new Date('2026-09-12T12:04:05Z'))).toBe('20260912-120405.novaepub.json')
+    expect(backupFileName(new Date('2026-09-12T12:04:05Z'))).toBe('20260912-120405.novaepub')
   })
 
   it('单书导出：serializeBook 打包 1 本且可被 parseBackup 恢复', () => {
@@ -49,9 +49,9 @@ describe('backup 序列化/解析', () => {
     expect(books[0].title).toBe('我的书')
   })
 
-  it('单书文件名：书名 + 时间戳，并清理非法字符', () => {
-    const name = singleBookFileName('我的 A/B:C*?"<>|书', new Date(2026, 8, 12, 12, 4, 5))
-    expect(name).toMatch(/^我的 A-B-C------书-20260912-120405\.novaepub\.json$/)
+  it('单书文件名：书名清理非法字符，后缀 .novaepub', () => {
+    const name = singleBookFileName('我的 A/B:C*?"<>|书')
+    expect(name).toBe('我的 A-B-C------书.novaepub')
   })
 })
 
@@ -89,18 +89,18 @@ describe('WebDAV 客户端', () => {
   it('PROPFIND 成功时解析出备份文件名（剔目录）', async () => {
     const xml = `<?xml version="1.0"?>
 <D:multistatus xmlns:D="DAV:">
-  <D:response><D:href>/dav/NovaEPUB/20260912-120405.novaepub.json</D:href></D:response>
-  <D:response><D:href>/dav/sub/other.novaepub.json</D:href></D:response>
+  <D:response><D:href>/dav/NovaEPUB/20260912-120405.novaepub</D:href></D:response>
+  <D:response><D:href>/dav/sub/other.novaepub</D:href></D:response>
 </D:multistatus>`
     expect(webdavUtils.parseDavDirList(xml)).toEqual([
-      '20260912-120405.novaepub.json',
-      'other.novaepub.json',
+      '20260912-120405.novaepub',
+      'other.novaepub',
     ])
   })
 
   it('PUT 会先 MKCOL 建目录并带上认证头', async () => {
     const fetchMock = mockFetch(() => Promise.resolve(new Response('', { status: 201 })))
-    await webdavUtils.davPutText(cfg, 'backups/a.novaepub.json', '{"x":1}', fetchMock)
+    await webdavUtils.davPutText(cfg, 'backups/a.novaepub', '{"x":1}', fetchMock)
     const methods = fetchMock.mock.calls.map(([, init]) => init.method)
     expect(methods).toContain('MKCOL')
     expect(methods[methods.length - 1]).toBe('PUT')
@@ -110,7 +110,7 @@ describe('WebDAV 客户端', () => {
 
   it('GET 404 返回 null 而不是抛错', async () => {
     const fetchMock = mockFetch(() => Promise.resolve(new Response('', { status: 404 })))
-    expect(await webdavUtils.davGetText(cfg, 'latest.novaepub.json', fetchMock)).toBeNull()
+    expect(await webdavUtils.davGetText(cfg, 'latest.novaepub', fetchMock)).toBeNull()
   })
 
   it('测试连接：401 给出友好报错', async () => {
@@ -208,14 +208,14 @@ describe('sync 门面（mock fetch）', () => {
     const cfg = { serverUrl: 'https://dav.example.com/dav', username: 'u', password: 'p', folder: 'NovaEPUB' }
     const now = new Date('2026-09-12T12:04:05Z')
     const name = await sync.uploadBackup('webdav', cfg, payload, { now, fetchImpl: fetchMock })
-    expect(name).toBe('20260912-120405.novaepub.json')
+    expect(name).toBe('20260912-120405.novaepub')
 
     const listed = await sync.listRemoteBackups('webdav', cfg, fetchMock)
-    expect(listed.some((b) => b.name === 'latest.novaepub.json')).toBe(true)
-    expect(listed.some((b) => b.name === '20260912-120405.novaepub.json')).toBe(true)
-    expect(listed[0].name).toBe('latest.novaepub.json')
+    expect(listed.some((b) => b.name === 'latest.novaepub')).toBe(true)
+    expect(listed.some((b) => b.name === '20260912-120405.novaepub')).toBe(true)
+    expect(listed[0].name).toBe('latest.novaepub')
 
-    const text = await sync.downloadBackup('webdav', cfg, '20260912-120405.novaepub.json', fetchMock)
+    const text = await sync.downloadBackup('webdav', cfg, '20260912-120405.novaepub', fetchMock)
     expect(parseBackup(text)).toHaveLength(1)
   })
 
@@ -224,7 +224,7 @@ describe('sync 门面（mock fetch）', () => {
     // 预置 12 份旧快照
     for (let i = 1; i <= 12; i++) {
       const stamp = String(20260900 + i) + '-000000'
-      files.set(`https://dav.example.com/dav/NovaEPUB/backups/${stamp}.novaepub.json`, '{}')
+      files.set(`https://dav.example.com/dav/NovaEPUB/backups/${stamp}.novaepub`, '{}')
     }
     const fetchMock = mockFetch(async (url, init = {}) => {
       const path = decodeURIComponent(url)

@@ -333,7 +333,7 @@ async function exportBackupFile() {
   const date = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`
-  saveAs(new Blob([payload], { type: 'application/json' }), `novaepub-${stamp}.novaepub.json`)
+  saveAs(new Blob([payload], { type: 'application/json' }), `novaepub-${stamp}.novaepub`)
 }
 
 /** 单本书导出为 .novaepub 工程文件（同一备份格式，bookCount=1，可用导入备份恢复）。 */

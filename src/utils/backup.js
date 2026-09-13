@@ -1,5 +1,5 @@
 /**
- * .novaepub.json 备份格式：整库（所有书）的 JSON 快照。
+ * .novaepub 备份格式：整库（所有书）或单书的 JSON 快照，统一用 .novaepub 后缀。
  * 书对象与 localStorage 里存的完全一致（含 images/resources/styles/chapters），
  * 恢复时逐本走 bookStore.importBook（同 id 覆盖）。
  */
@@ -39,24 +39,21 @@ export function parseBackup(text = '') {
   return payload.books
 }
 
-/** 生成备份文件名（不带目录前缀），形如 20260912-120405.novaepub.json。 */
+/** 生成备份文件名（不带目录前缀），形如 20260912-120405.novaepub。 */
 export function backupFileName(date = new Date()) {
   const pad = (n) => String(n).padStart(2, '0')
   const stamp = `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}` +
     `-${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}`
-  return `${stamp}.novaepub.json`
+  return `${stamp}.novaepub`
 }
 
-/** 生成单书工程文件名：书名 + 时间戳，形如 我的书-20260912-120405.novaepub.json。 */
-export function singleBookFileName(title = '', date = new Date()) {
-  const safe = String(title || '未命名书籍')
+/** 生成单书工程文件名：书名（清理非法字符），形如 我的书.novaepub。 */
+export function singleBookFileName(title = '') {
+  return `${String(title || '未命名书籍')
     .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 80) || '未命名书籍'
-  const pad = (n) => String(n).padStart(2, '0')
-  const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
-  return `${safe}-${stamp}.novaepub.json`
+    .slice(0, 80) || '未命名书籍'}.novaepub`
 }
 
 /** 把单本书序列化为 .novaepub 工程文件载荷（复用整库备份格式，bookCount=1）。 */

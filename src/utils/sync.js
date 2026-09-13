@@ -1,6 +1,6 @@
 /**
  * 云同步统一封装：对上层隐藏 WebDAV / S3 的差异。
- * 备份布局：{folder}/backups/{时间戳}.novaepub.json + {folder}/latest.novaepub.json
+ * 备份布局：{folder}/backups/{时间戳}.novaepub + {folder}/latest.novaepub
  * 上传后自动清理旧快照（保留最近 KEEP 数量的时间戳备份）。
  */
 
@@ -45,17 +45,17 @@ export async function uploadBackup(provider, cfg, payloadText = '', { now = new 
   const impl = assertSupported(provider)
   const name = backupFileName(now)
   await impl.put(cfg, `backups/${name}`, payloadText, fetchImpl)
-  await impl.put(cfg, 'latest.novaepub.json', payloadText, fetchImpl)
+  await impl.put(cfg, 'latest.novaepub', payloadText, fetchImpl)
   // 清理旧快照（best-effort）：只删 backups/ 里的时间戳文件
   try {
     const files = await impl.list(cfg, fetchImpl)
     const stems = (files || [])
-      .map((f) => (f.endsWith('.novaepub.json') ? f.replace(/\.novaepub\.json$/, '') : null))
+      .map((f) => (f.endsWith('.novaepub') ? f.replace(/\.novaepub$/, '') : null))
       .filter((s) => /^\d{8}-\d{6}$/.test(s))
       .sort()
       .reverse()
     for (const old of stems.slice(KEEP_BACKUPS)) {
-      await impl.remove(cfg, `backups/${old}.novaepub.json`, fetchImpl)
+      await impl.remove(cfg, `backups/${old}.novaepub`, fetchImpl)
     }
   } catch (err) {
     // 清理失败不影响上传结果
@@ -69,8 +69,8 @@ export async function listRemoteBackups(provider, cfg, fetchImpl = fetch) {
   const impl = assertSupported(provider)
   const files = await impl.list(cfg, fetchImpl)
   const snaps = (files || [])
-    .filter((f) => f.endsWith('.novaepub.json'))
-    .map((f) => f.replace(/\.novaepub\.json$/, ''))
+    .filter((f) => f.endsWith('.novaepub'))
+    .map((f) => f.replace(/\.novaepub$/, ''))
     .sort((a, b) => {
       if (a === 'latest') return -1
       if (b === 'latest') return 1
@@ -78,7 +78,7 @@ export async function listRemoteBackups(provider, cfg, fetchImpl = fetch) {
       return b.localeCompare(a)
     })
     .map((stem) => ({
-      name: `${stem}.novaepub.json`,
+      name: `${stem}.novaepub`,
       label: stem === 'latest' ? '最新（latest）' : labelFromStamp(stem),
     }))
   return snaps
@@ -87,8 +87,8 @@ export async function listRemoteBackups(provider, cfg, fetchImpl = fetch) {
 /** 下载一份备份文本。name 为远端文件名（不含 backups/ 前缀）。 */
 export async function downloadBackup(provider, cfg, name, fetchImpl = fetch) {
   const impl = assertSupported(provider)
-  if (name === 'latest.novaepub.json') {
-    return impl.get(cfg, 'latest.novaepub.json', fetchImpl)
+  if (name === 'latest.novaepub') {
+    return impl.get(cfg, 'latest.novaepub', fetchImpl)
   }
   return impl.get(cfg, `backups/${name}`, fetchImpl)
 }
