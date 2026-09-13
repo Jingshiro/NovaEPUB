@@ -1,7 +1,7 @@
 # NovaEpub
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Tests](https://img.shields.io/badge/tests-136%20%2B%2033%20E2E%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-139%20%2B%2033%20E2E%20passing-brightgreen)]()
 [![Vue 3](https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vuedotjs)]() [![Vite](https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite)]()
 
 > 一个能改 EPUB 的小网页（不是小破站，真没那么破）。
@@ -92,7 +92,7 @@ npm run build
 
 不是摆烂项目：
 
-- **136 项单测 / 组件测试**（Vitest）
+- **139 项单测 / 组件测试**（Vitest）
 - **33 项端到端测试**（Playwright + 生产构建）：新建 → 编辑 → 预览 → 导出、带图 EPUB 图库回环、模板套了删了样式还在、EPUB 结构规范、草稿崩溃恢复、移动端布局，都跑过。
 - 交付要求：`npm test` 和 `npm run build` 必须全绿。
 

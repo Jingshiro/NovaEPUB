@@ -347,16 +347,19 @@ function closeTemplateMenu() {
   showTemplateMenu.value = false
 }
 
-// 切换到新章节时更新编辑器内容（不触发更新写入）
+// 章节变化或编辑器就绪时，把当前章节内容加载进编辑器（不触发更新写入）。
+// 必须同时等章节 id 与 editor 都就绪：首次进入编辑器时父组件 onMounted
+// 才设置 activeChapterId，若此时 editor 尚未创建，旧实现会漏掉首次加载，
+// 导致导入/打开已有内容的书显示空白。
 watch(
-  () => props.chapter?.id,
-  (newId, oldId) => {
-    if (!editorStore.editor) return
-    if (newId !== oldId) {
-      const html = resolveContentImages(bookStore.activeBook || {}, props.chapter?.content || '')
-      editorStore.editor.commands.setContent(html, false)
-    }
+  [() => props.chapter?.id, () => !!editorStore.editor],
+  () => {
+    const chapter = props.chapter
+    if (!chapter || !editorStore.editor) return
+    const html = resolveContentImages(bookStore.activeBook || {}, chapter.content || '')
+    editorStore.editor.commands.setContent(html, false)
   },
+  { immediate: true },
 )
 
 function injectBookStyles(book) {

@@ -43,6 +43,20 @@ describe('EditorView', () => {
     expect(wrapper.text()).toContain('属性')
   })
 
+  it('打开已有内容的书时编辑器能加载章节内容（2026-09-12 回归：导入书首次进入空白）', async () => {
+    const store = useBookStore()
+    const chapter = store.activeBook.chapters[0]
+    store.saveChapterContent(chapter.id, '<p>已导入内容哈哈</p>')
+    const wrapper = mount(EditorView, {
+      global: { plugins: [pinia, router] },
+      props: { bookId },
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const pm = wrapper.find('.ProseMirror')
+    expect(pm.exists()).toBe(true)
+    expect(pm.text()).toContain('已导入内容哈哈')
+  })
+
   it('从书架点击进入时 activeBookId 尚未加载也有兜底，不白屏', async () => {
     const pinia2 = createPinia()
     setActivePinia(pinia2)

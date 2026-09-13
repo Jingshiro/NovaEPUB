@@ -101,9 +101,9 @@ export function splitMarkdownChapters(md = '') {
     const heading = line.match(/^#\s+(.+?)\s*#*\s*$/)
     if (heading) {
       if (current) {
-        result.push(current)
+        result.push({ title: current.title, content: current.content.join('\n') })
       } else if (prefix.some((l) => l.trim())) {
-        result.push({ title: '前言', content: prefix })
+        result.push({ title: '前言', content: prefix.join('\n') })
       }
       current = { title: heading[1].trim(), content: [] }
     } else if (current) {
@@ -113,9 +113,9 @@ export function splitMarkdownChapters(md = '') {
     }
   }
   if (current) {
-    result.push(current)
+    result.push({ title: current.title, content: current.content.join('\n') })
   } else if (prefix.some((l) => l.trim())) {
-    result.push({ title: '全文', content: prefix })
+    result.push({ title: '全文', content: prefix.join('\n') })
   }
   return result
 }

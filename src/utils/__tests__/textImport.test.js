@@ -29,8 +29,50 @@ describe('TXT / Markdown 导入', () => {
   it('Markdown 一级标题切分成章节', () => {
     const chapters = splitMarkdownChapters('# 第一章\n正文一\n\n# 第二章\n正文二')
     expect(chapters.map((c) => c.title)).toEqual(['第一章', '第二章'])
+    // 回归：content 必须是字符串，否则会被 String(array) 逗号拼接导致全文乱码
+    expect(typeof chapters[0].content).toBe('string')
     expect(chapters[0].content).toContain('正文一')
     expect(chapters[1].content).toContain('正文二')
+  })
+
+  it('parseMarkdown 不把多行内容逗号拼成一坨（2026-09-12 回归）', () => {
+    const md = `# 第一章
+第一段第一行
+第一段第二行
+
+第二段带 **加粗**
+
+## 二级标题
+
+- 列表项一
+- 列表项二
+
+\`\`\`js
+const a = 1
+\`\`\`
+
+> 引用
+`
+    const book = parseMarkdown(md, { title: '修复测试' })
+    expect(book.chapters).toHaveLength(1)
+    const html = book.chapters[0].content
+    expect(html).toContain('<p>第一段第一行 第一段第二行</p>')
+    expect(html).toContain('<p>第二段带 <strong>加粗</strong></p>')
+    expect(html).toContain('<h2>二级标题</h2>')
+    expect(html).toContain('<ul><li>列表项一</li><li>列表项二</li></ul>')
+    expect(html).toContain('<pre><code>const a = 1</code></pre>')
+    expect(html).toContain('<blockquote><p>引用</p></blockquote>')
+    expect(html).not.toContain(',')
+    // 段落/块之间应换行分隔，而不是全部挤进一个 <p>
+    expect(html).toContain('\n')
+  })
+
+  it('Markdown 无一级标题时整篇仍按段落输出', () => {
+    const book = parseMarkdown('第一段\n\n第二段', { title: '无标题' })
+    expect(book.chapters).toHaveLength(1)
+    expect(book.chapters[0].content).toContain('<p>第一段</p>')
+    expect(book.chapters[0].content).toContain('<p>第二段</p>')
+    expect(book.chapters[0].content).not.toContain(',')
   })
 
   it('Markdown 转换支持常用语法', () => {
