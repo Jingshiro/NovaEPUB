@@ -7,6 +7,8 @@
 > 一个能改 EPUB 的小网页（不是小破站，真没那么破）。
 > 纯前端、离线、不收集数据。你的书你自己存着，爱咋咋。
 
+**在线体验（GitHub Pages）：https://jingshiro.github.io/NovaEPUB/**
+
 ## 这玩意是干嘛的
 
 字面意思：**改 EPUB**。
