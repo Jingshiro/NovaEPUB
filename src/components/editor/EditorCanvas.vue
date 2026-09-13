@@ -13,7 +13,7 @@
     </div>
 
     <div class="flex-1 overflow-y-auto">
-      <div class="prose max-w-none">
+      <div class="prose max-w-none novaepub-editor-scope">
         <EditorContent :editor="editorStore.editor" class="min-h-[50vh] outline-none" />
       </div>
     </div>
@@ -57,6 +57,7 @@ import { useBookStore } from '../../stores/book'
 import { useHistoryStore } from '../../stores/history'
 import { useTemplateStore } from '../../stores/templates'
 import { applyTemplateToEditor, injectTemplateCss } from '../../utils/template'
+import { scopeCss } from '../../utils/cssScope'
 import { StyleAttributes } from '../../utils/tiptapStyleAttrs'
 import { fileToCompressedDataUrl, normalizeContentImages, resolveContentImages } from '../../utils/image'
 import { splitEditorContentAt } from '../../utils/chapterOps'
@@ -364,16 +365,20 @@ watch(
 
 function injectBookStyles(book) {
   const styles = book?.styles || []
+  // 书内 CSS 的选择器（body/p/.class 等）是全局的，原样注入会改掉整个应用布局。
+  // 必须先限定到编辑器内容容器（.novaepub-editor-scope）之下；
+  // 预览走 iframe 天然隔离、导出组装时使用原始样式，都不受影响。
   styles.forEach((css, i) => {
-    if (css) injectTemplateCss(`book-style-${i}`, css)
+    const scoped = scopeCss(css, '.novaepub-editor-scope')
+    if (scoped) injectTemplateCss(`book-style-${i}`, scoped)
   })
 }
 
 // 书内已固化的模板样式要注入编辑器 head，保证刷新/切章后 class 样式仍生效
 watch(
   () => bookStore.activeBook?.styles,
-  (styles) => {
-    if (Array.isArray(styles)) injectBookStyles(bookStore.activeBook)
+  () => {
+    if (bookStore.activeBook) injectBookStyles(bookStore.activeBook)
   },
   { immediate: true, deep: true },
 )
