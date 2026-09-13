@@ -39,7 +39,7 @@
         <button class="btn-secondary" @click="uiStore.toggleSidebar()">
           目录
         </button>
-        <button class="btn-secondary hidden md:block lg:hidden" @click="uiStore.togglePanel()">
+        <button class="btn-secondary lg:hidden" @click="uiStore.togglePanel()">
           样式
         </button>
         <button class="btn-primary" @click="exportBook">
@@ -75,6 +75,12 @@
         v-show="uiStore.stylePanelOpen"
         class="w-[280px] shrink-0 flex flex-col border-l border-line bg-bg-muted max-lg:absolute max-lg:inset-y-14 max-lg:right-0 max-lg:z-30 max-lg:w-72 max-lg:shadow-card"
       >
+        <!-- 窄屏浮层化时的关闭按钮（宽屏面板常驻，不需要） -->
+        <button
+          class="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-line bg-bg-card text-ink-placeholder shadow-card lg:hidden"
+          title="收起样式面板"
+          @click="uiStore.togglePanel()"
+        >✕</button>
         <section class="min-h-0 flex-1 overflow-hidden">
           <StylePanel @add="(scope) => openTemplateEditor(null, scope)" @edit="(tpl, scope) => openTemplateEditor(tpl, scope)" />
         </section>
