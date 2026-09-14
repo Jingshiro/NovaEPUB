@@ -5,7 +5,37 @@ import { createBook, createChapter, countWords } from '../stores/book'
  * 不引入额外依赖：内置一个小型 Markdown 转换器，覆盖书籍常见语法。
  */
 
-const CHAPTER_PATTERN = /^[ \t]*(第[一二三四五六七八九十百千万零0-9]+[章节回部卷集]|(?:chapter|CHAPTER|Chapter)\s+\d+)[^\n]{0,40}$/
+// 章节标题行的判定。
+//
+// 曾经写成 `(第X章|Chapter N)[^\n]{0,40}`，尾部允许跟 40 个任意字符：
+// 正文里任何以「第二章」开头的句子（如「第二章的正文开始。ABC…」）都会被
+// 当成标题，正文被切碎错位，导入后看起来就是乱码。
+//
+// 现在只认真正的标题形态：标记之后只能是空、或一个「短标题」。
+//   第一章                      → 标题
+//   第一章 山间来客              → 标题
+//   第十二章：归来                → 标题
+//   第 3 章  开端                → 标题
+//   Chapter 1                   → 标题
+//   Chapter 1 Introduction      → 标题
+//   第二章的正文开始。ABC…        → 正文（无分隔符 / 句末标点 / 过长）
+//
+// 组成：
+//   NUM        编号：阿拉伯或中文数字
+//   CN_MARKER  「第 X 章/节/回/部/卷/集」
+//   EN_MARKER  「Chapter N」（必须带空格和数字，避免命中 Chapter one 之外的正文）
+//   TITLE_TAIL 可选后缀：一个分隔符后跟不含句末标点的短标题
+const CHAPTER_NUM = '[0-9０-９一二三四五六七八九十百千万零两]+'
+const CHAPTER_PATTERN = new RegExp(
+  '^[ \\t]*' +
+    '(?:' +
+      `第\\s*${CHAPTER_NUM}\\s*[章节回部卷集]` + // 中文标记
+      '|' +
+      '(?:[Cc]hapter|CHAPTER)\\s+\\d+' +          // 英文标记
+    ')' +
+    '(?:[\\s:：、.．·—\\-]+[^。！？!?；;\\n]{1,20})?' + // 可选的短标题
+    '[ \\t]*$',
+)
 
 /** 是否为可导入的纯文本文件。 */
 export function isTextImportFile(file = {}) {
@@ -64,6 +94,14 @@ export function parseTxt(text = '', options = {}) {
   return book
 }
 
+/**
+ * 判断一行文本是否为章节标题（供 splitTextChapters 与测试使用）。
+ * 前后空白会被忽略。
+ */
+export function isChapterTitle(line = '') {
+  return CHAPTER_PATTERN.test(String(line).trim())
+}
+
 /** 按「第X章 / Chapter N」切分 TXT。 */
 export function splitTextChapters(text = '') {
   const lines = String(text).split(/\r?\n/)
@@ -77,7 +115,7 @@ export function splitTextChapters(text = '') {
   }
   for (const line of lines) {
     const trimmed = line.trim()
-    if (CHAPTER_PATTERN.test(trimmed)) {
+    if (isChapterTitle(trimmed)) {
       flush()
       current = { title: trimmed, body: [] }
     } else if (current) {

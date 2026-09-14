@@ -7,7 +7,51 @@ import {
   markdownToHtml,
   textToHtml,
   inlineToHtml,
+  isChapterTitle,
 } from '../textImport'
+
+describe('章节标题识别（isChapterTitle）', () => {
+  it('识别常见的章节标题写法', () => {
+    const headings = [
+      '第一章',
+      '第一章 开端',
+      '第二章 夜雨',
+      '第一章 山间来客',
+      '第十二章：归来',
+      '第 3 章  开端',
+      '第3节 小标题',
+      '第一百章',
+      '第一部 少年时',
+      '第2卷 风起',
+      'Chapter 1',
+      'Chapter 1 Introduction',
+      'chapter 12',
+      'CHAPTER 3 The End',
+      '  第一章   ',
+    ]
+    for (const line of headings) {
+      expect(isChapterTitle(line), line).toBe(true)
+    }
+  })
+
+  it('不把以「第X章」开头的正文句子当成标题（回归：正文被切碎像乱码）', () => {
+    const bodyLines = [
+      '第二章的正文开始。ABC mixed english 12345 numbers.',
+      '第二章的内容很精彩，值得一看，请继续阅读下面段落文字',
+      '第三章节内容说明这里有很多字的正文继续写着',
+      '第一章内容',
+      '这就是第一章的内容',
+      '第二章 这一章讲了很多东西，包括人物关系、历史背景以及各种细节描写。',
+      '第一章：这是标题吗。',
+      '他读到第二章 夜雨 的时候',
+      'Chapter 1 was very interesting to read today',
+      '普通的一句话',
+    ]
+    for (const line of bodyLines) {
+      expect(isChapterTitle(line), line).toBe(false)
+    }
+  })
+})
 
 describe('TXT / Markdown 导入', () => {
   it('TXT 按“第X章”切分章节', () => {
@@ -16,6 +60,37 @@ describe('TXT / Markdown 导入', () => {
     expect(chapters[0].title).toBe('第一章')
     expect(chapters[1].title).toBe('第二章')
     expect(chapters[1].content).toContain('世界')
+  })
+
+  it('正文里出现「第X章…」句子时不被误切成新章节（2026-09-14 回归）', () => {
+    const txt = [
+      '第一章 山间来客',
+      '这是第一章的第一段正文。',
+      '',
+      '第二章的正文开始。ABC mixed english 12345 numbers.',
+      '结束。',
+      '第二章 夜雨',
+      '第二章的正文。',
+    ].join('\n')
+    const chapters = splitTextChapters(txt)
+    expect(chapters).toHaveLength(2)
+    expect(chapters.map((c) => c.title)).toEqual(['第一章 山间来客', '第二章 夜雨'])
+    // 关键：以「第二章」开头的那句正文必须留在第一章正文里，而不是变成标题
+    expect(chapters[0].content).toContain('第二章的正文开始。ABC mixed english 12345 numbers.')
+    expect(chapters[1].content).toContain('第二章的正文。')
+  })
+
+  it('导入后的章节标题是真正的标题，正文完整保留', () => {
+    const txt = [
+      '第一章 山间来客',
+      '正文一。',
+      '第二章的正文开始。这句是正文。',
+      '第二章 夜雨',
+      '正文二。',
+    ].join('\n')
+    const book = parseTxt(txt, { title: '样本' })
+    expect(book.chapters.map((c) => c.title)).toEqual(['第一章 山间来客', '第二章 夜雨'])
+    expect(book.chapters[0].content).toContain('第二章的正文开始。这句是正文。')
   })
 
   it('无章节标记的 TXT 生成可阅读的段落 HTML', () => {
