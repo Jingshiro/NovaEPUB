@@ -44,7 +44,14 @@ export function isTextImportFile(file = {}) {
     /^(text\/plain|text\/markdown|text\/x-markdown)$/.test(file.type || '')
 }
 
-/** 读取并解析 TXT / Markdown 文件，返回可直接存入 bookStore 的书籍对象。 */
+/**
+ * 读取并解析 TXT / Markdown 文件，返回可直接存入 bookStore 的书籍对象。
+ *
+ * 注意：这里必须自己读字节再解码，不能用 file.text() / FileReader.readAsText()。
+ * 那两个 API 固定按 UTF-8 解码，遇到 GBK/GB18030 的中文 TXT（中文 Windows 上
+ * 记事本「ANSI」另存就是）会把每个汉字拆成非法字节序列，产生满屏 U+FFFD
+ * 替换字符，用户看到的就是「乱码」。
+ */
 export async function parseTextImportFile(file = {}) {
   const text = await readFileText(file)
   const baseName = String(file.name || '未命名')
@@ -56,14 +63,93 @@ export async function parseTextImportFile(file = {}) {
     : parseTxt(text, { title: baseName })
 }
 
-function readFileText(file) {
-  if (typeof file.text === 'function') return file.text()
+/** 取出文件字节（优先 arrayBuffer，回退 FileReader）。 */
+async function readFileBytes(file) {
+  if (typeof file.arrayBuffer === 'function') {
+    return new Uint8Array(await file.arrayBuffer())
+  }
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => resolve(reader.result || '')
+    reader.onload = () => resolve(new Uint8Array(reader.result || new ArrayBuffer(0)))
     reader.onerror = () => reject(reader.error)
-    reader.readAsText(file)
+    reader.readAsArrayBuffer(file)
   })
+}
+
+/**
+ * 按 BOM 探测编码。返回 { encoding, offset }，无 BOM 时返回 null。
+ * UTF-16/UTF-32 的 BOM 必须优先处理，否则会被当成乱码。
+ */
+function detectBom(bytes) {
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return { encoding: 'utf-8', offset: 3 }
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    // FF FE 也可能是 UTF-32LE 的前两字节，用第三四字节区分
+    if (bytes.length >= 4 && bytes[2] === 0x00 && bytes[3] === 0x00) {
+      return { encoding: 'utf-32le', offset: 4 }
+    }
+    return { encoding: 'utf-16le', offset: 2 }
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return { encoding: 'utf-16be', offset: 2 }
+  }
+  return null
+}
+
+/**
+ * 解码文本字节：BOM → UTF-8 严格校验 → GB18030 → 宽松 UTF-8 兜底。
+ *
+ * 关键点：
+ * - UTF-8 必须用 { fatal: true } 校验。不带 fatal 时非法字节会被静默替换成
+ *   U+FFFD 而不抛错，GBK 文件会被「成功」解出一堆乱码，探测就失去意义了。
+ * - GB18030 覆盖 GBK/GB2312，是中文非 UTF-8 文本的通用回退。
+ * - 若 GB18030 也失败（环境不支持），退回宽松 UTF-8，保证总有结果。
+ */
+export function decodeTextBytes(bytes) {
+  const bytesArr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || [])
+  if (bytesArr.length === 0) return ''
+
+  const bom = detectBom(bytesArr)
+  if (typeof TextDecoder === 'undefined') {
+    // 极端环境没有 TextDecoder：只能逐字节按 latin1 拼，至少不抛错
+    let out = ''
+    for (let i = bom ? bom.offset : 0; i < bytesArr.length; i += 1) out += String.fromCharCode(bytesArr[i])
+    return out
+  }
+
+  if (bom) {
+    try {
+      return new TextDecoder(bom.encoding, { fatal: true }).decode(bytesArr.subarray(bom.offset))
+    } catch {
+      /* BOM 声称的编码不可用时继续往下探测 */
+    }
+  }
+
+  const body = bom ? bytesArr.subarray(bom.offset) : bytesArr
+
+  // 1) 优先 UTF-8 严格校验：能通过就说明确实是 UTF-8
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(body)
+  } catch {
+    /* 不是合法 UTF-8，继续 */
+  }
+
+  // 2) 回退 GB18030（覆盖 GBK / GB2312），中文 TXT 的主要来源
+  try {
+    return new TextDecoder('gb18030', { fatal: true }).decode(body)
+  } catch {
+    /* 环境不支持或内容不属于该编码 */
+  }
+
+  // 3) 最后兜底：宽松 UTF-8，绝不抛错
+  return new TextDecoder('utf-8').decode(body)
+}
+
+/** 读取文件正文文本，自动处理 UTF-8 / GBK / UTF-16 等常见编码。 */
+async function readFileText(file) {
+  const bytes = await readFileBytes(file)
+  return decodeTextBytes(bytes)
 }
 
 /** 解析 Markdown 文本。 */
@@ -102,9 +188,81 @@ export function isChapterTitle(line = '') {
   return CHAPTER_PATTERN.test(String(line).trim())
 }
 
-/** 按「第X章 / Chapter N」切分 TXT。 */
+/** 整行只有 1~4 位数字（允许全角数字与前后全角/半角空白），如「　　1」「2」。 */
+const BARE_NUMBER_PATTERN = /^[\s\u3000]*[0-9０-９]{1,4}[\s\u3000]*$/
+
+/**
+ * 认定「这本书用纯数字做章节」所需的最少命中行数。
+ * 门槛设高一些，避免正文里偶然出现的递增数字被当成章节标记。
+ */
+const MIN_BARE_HEADINGS = 3
+
+/** 把整行数字转成 Number（全角数字先归一化）。返回 null 表示不是纯数字行。 */
+function parseBareNumber(line = '') {
+  const s = String(line).trim()
+  if (!BARE_NUMBER_PATTERN.test(s)) return null
+  const normalized = s
+    .replace(/[\u3000\s]/g, '')
+    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+  const n = Number(normalized)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * 找出「纯数字成行」的章节标记下标。
+ *
+ * 为什么不能只看「是不是数字」：正文里也会出现独立成行的数字（日期、页码、
+ * 电话、金额…）。只按数字判定会重蹈之前正则过宽的覆辙——把正文切碎。
+ *
+ * 真正的章节编号总是从 1 附近开始、逐个递增、并且数量不少。因此要求同时满足：
+ * 1. 整行只有 1~4 位数字（全角也可以）；
+ * 2. 命中行能组成一条递增序列：起点 ≤ 3，之后每步递增 1~3（容忍漏章）；
+ * 3. 命中的行数 ≥ MIN_BARE_HEADINGS。真书章节通常很多，这个门槛能把
+ *    「正文里碰巧有两行递增数字」的情况挡掉。
+ *
+ * 任何一条不满足就整本不启用纯数字切章，宁可切成前言也不要切碎正文。
+ *
+ * @returns {Set<number>} 命中行的下标集合
+ */
+export function findBareNumberHeadings(lines = []) {
+  const candidates = []
+  lines.forEach((line, index) => {
+    const n = parseBareNumber(line)
+    if (n !== null) candidates.push({ index, n })
+  })
+  if (candidates.length < MIN_BARE_HEADINGS) return new Set()
+
+  // 在当前候选序列里找最长的一条递增链（起点 ≤ 3，每步递增 1~3）
+  let best = []
+  let current = []
+  for (const item of candidates) {
+    if (!current.length) {
+      if (item.n <= 3) current = [item]
+      continue
+    }
+    const prev = current[current.length - 1]
+    if (item.n > prev.n && item.n - prev.n <= 3) {
+      current.push(item)
+    } else {
+      if (current.length > best.length) best = current
+      current = item.n <= 3 ? [item] : []
+    }
+  }
+  if (current.length > best.length) best = current
+
+  if (best.length < MIN_BARE_HEADINGS) return new Set()
+  return new Set(best.map((item) => item.index))
+}
+
+/**
+ * 按「第X章 / Chapter N / 纯数字行」切分 TXT。
+ *
+ * 纯数字行必须在同一本书里构成递增序列才会被认作章节（见
+ * findBareNumberHeadings），避免把正文里偶然独立成行的数字当成标题。
+ */
 export function splitTextChapters(text = '') {
   const lines = String(text).split(/\r?\n/)
+  const bareHeadings = findBareNumberHeadings(lines)
   const result = []
   let current = null
   const flush = () => {
@@ -113,9 +271,10 @@ export function splitTextChapters(text = '') {
       current = null
     }
   }
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     const trimmed = line.trim()
-    if (isChapterTitle(trimmed)) {
+    const isBare = bareHeadings.has(index)
+    if (isChapterTitle(trimmed) || isBare) {
       flush()
       current = { title: trimmed, body: [] }
     } else if (current) {
@@ -124,7 +283,7 @@ export function splitTextChapters(text = '') {
       if (!result.length) current = { title: '前言', body: [line] }
       else result[result.length - 1].content = `${result[result.length - 1].content}\n${line}`
     }
-  }
+  })
   flush()
   return result
 }

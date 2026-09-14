@@ -8,7 +8,97 @@ import {
   textToHtml,
   inlineToHtml,
   isChapterTitle,
+  findBareNumberHeadings,
+  decodeTextBytes,
+  parseTextImportFile,
 } from '../textImport'
+
+/** UTF-8 编码（TextEncoder 是通用的，不依赖 Node Buffer 的编码表）。 */
+const utf8 = (text) => new TextEncoder().encode(text)
+
+/**
+ * 真实 GBK 字节样本，取自《占山为王》[出書版+番外].txt 的文件头。
+ * 这份文件没有 BOM、不是合法 UTF-8、用 GBK 解出来是正常中文——正是用户
+ * 反馈「导入后乱码」的那类文件。
+ */
+const GBK_HEAD_BYTES = new Uint8Array([
+  0xb1, 0xbe, 0xcd, 0xbc, 0xca, 0xe9, 0xd3, 0xc9, 0x77, 0x77, 0x77, 0x2e,
+  0x63, 0x6e, 0x63, 0x6e, 0x7a, 0x2e, 0x63, 0x6e, 0xa3, 0xa8, 0xc4, 0xe3,
+  0xb5, 0xc4, 0xc2, 0xdb, 0xcc, 0xb3, 0x49, 0x44, 0xa3, 0xa9, 0xce, 0xaa,
+  0xc4, 0xfa, 0xd5, 0xfb, 0xc0, 0xed, 0xd6, 0xc6, 0xd7, 0xf7,
+])
+const GBK_HEAD_TEXT = '本图书由www.cncnz.cn（你的论坛ID）为您整理制作'
+
+describe('TXT 编码探测（2026-09-14 回归：GBK 文件导入乱码）', () => {
+  const SAMPLE = '第一章 山间来客\n这是第一章的正文，包含中文标点：你好，世界！\n第二章 夜雨\n正文内容。\n'
+
+  it('UTF-8 正常解码', () => {
+    expect(decodeTextBytes(utf8(SAMPLE))).toBe(SAMPLE)
+  })
+
+  it('UTF-8 带 BOM 解码后不残留 BOM 字符', () => {
+    expect(decodeTextBytes(utf8(`\uFEFF${SAMPLE}`))).toBe(SAMPLE)
+  })
+
+  it('GB18030 的合法 UTF-8 不会被误判成 GBK', () => {
+    const text = '第一章 你好世界，段落结束。'
+    expect(decodeTextBytes(utf8(text))).toBe(text)
+  })
+
+  it('真实 GBK 文件字节解码出正确中文，而不是满屏 U+FFFD（核心回归）', () => {
+    const decoded = decodeTextBytes(GBK_HEAD_BYTES)
+    expect(decoded).toBe(GBK_HEAD_TEXT)
+    expect(decoded).not.toContain('\uFFFD')
+  })
+
+  it('同一段文本按 UTF-8 硬解会乱码（证明探测确有必要）', () => {
+    // 这正是修复前 file.text() 的行为：非法字节被静默替换成 U+FFFD
+    const wrong = new TextDecoder('utf-8').decode(GBK_HEAD_BYTES)
+    expect(wrong).toContain('\uFFFD')
+    expect(wrong).not.toBe(GBK_HEAD_TEXT)
+  })
+
+  it('UTF-16LE 带 BOM 能正确解码', () => {
+    const le = Buffer.from(SAMPLE, 'utf16le')
+    const buf = Buffer.concat([Buffer.from([0xff, 0xfe]), le])
+    expect(decodeTextBytes(new Uint8Array(buf))).toBe(SAMPLE)
+  })
+
+  it('UTF-16BE 带 BOM 能正确解码', () => {
+    const le = Buffer.from(SAMPLE, 'utf16le')
+    const be = Buffer.alloc(le.length)
+    for (let i = 0; i < le.length; i += 2) {
+      be[i] = le[i + 1]
+      be[i + 1] = le[i]
+    }
+    const buf = Buffer.concat([Buffer.from([0xfe, 0xff]), be])
+    expect(decodeTextBytes(new Uint8Array(buf))).toBe(SAMPLE)
+  })
+
+  it('空文件返回空字符串', () => {
+    expect(decodeTextBytes(new Uint8Array([]))).toBe('')
+  })
+
+  it('parseTextImportFile 走 arrayBuffer 路径读取 GBK 文件：不乱码且切章正确', async () => {
+    // GBK 的「第一章 山间来客」+ 正文，用真实字节拼出来
+    const gbk = new Uint8Array([
+      ...GBK_HEAD_BYTES,
+      0x0d, 0x0a,
+    ])
+    const fakeFile = {
+      name: '占山为王.txt',
+      arrayBuffer: async () => gbk.buffer.slice(gbk.byteOffset, gbk.byteOffset + gbk.byteLength),
+    }
+    const book = await parseTextImportFile(fakeFile)
+    expect(book.chapters[0].content).toContain(GBK_HEAD_TEXT)
+    expect(book.chapters[0].content).not.toContain('\uFFFD')
+  })
+
+  it('parseTextImportFile 的 File 没有 arrayBuffer 时回退 FileReader（此处应明确报错而非静默乱码）', async () => {
+    const fakeFile = { name: 'x.txt' }
+    await expect(parseTextImportFile(fakeFile)).rejects.toBeTruthy()
+  })
+})
 
 describe('章节标题识别（isChapterTitle）', () => {
   it('识别常见的章节标题写法', () => {
@@ -50,6 +140,73 @@ describe('章节标题识别（isChapterTitle）', () => {
     for (const line of bodyLines) {
       expect(isChapterTitle(line), line).toBe(false)
     }
+  })
+})
+
+describe('纯数字行章节标记（《占山为王》格式）', () => {
+  it('识别递增的纯数字行作为章节', () => {
+    const lines = [
+      '书名：占山为王',
+      '作者有话要说：废话。',
+      '　　1',
+      '第一段正文。',
+      '　　2',
+      '第二段正文。',
+      '　　3',
+      '第三段正文。',
+    ]
+    const picked = findBareNumberHeadings(lines)
+    expect([...picked].sort((a, b) => a - b)).toEqual([2, 4, 6])
+
+    const chapters = splitTextChapters(lines.join('\n'))
+    expect(chapters.map((c) => c.title)).toEqual(['前言', '1', '2', '3'])
+    expect(chapters[1].content).toContain('第一段正文。')
+  })
+
+  it('全角数字与全角空格同样识别', () => {
+    const lines = ['　１', '正文一', '　２', '正文二', '　３', '正文三']
+    const chapters = splitTextChapters(lines.join('\n'))
+    expect(chapters.map((c) => c.title)).toEqual(['１', '２', '３'])
+  })
+
+  it('正文里偶然独立成行的数字不会被当成章节（不能重蹈切太宽的覆辙）', () => {
+    const lines = [
+      '第一章 开端',
+      '他数了数：',
+      '2024',
+      '那是很久以前的事了。',
+      '　　7',
+      '一个孤立的数字。',
+    ]
+    const chapters = splitTextChapters(lines.join('\n'))
+    // 2024 太不像章节起点、7 只有一个 → 都不该切章
+    expect(chapters.map((c) => c.title)).toEqual(['第一章 开端'])
+    expect(chapters[0].content).toContain('那是很久以前的事了。')
+    expect(chapters[0].content).toContain('一个孤立的数字。')
+  })
+
+  it('只有单个数字行时不切章', () => {
+    const chapters = splitTextChapters('正文开始。\n\n5\n\n正文继续。')
+    expect(chapters.map((c) => c.title)).toEqual(['前言'])
+  })
+
+  it('「第X章」与纯数字混用时不互相干扰', () => {
+    const lines = ['第一章 开始', '正文一。', '　　1', '纯数字正文。', '　　2', '更多正文。', '　　3', '收尾。']
+    const chapters = splitTextChapters(lines.join('\n'))
+    // 「第一章 开始」是标题；随后 1、2、3 构成递增序列，各自成章
+    expect(chapters.map((c) => c.title)).toEqual(['第一章 开始', '1', '2', '3'])
+  })
+
+  it('番外等文字标记仍按普通正文处理（当前不识别）', () => {
+    const chapters = splitTextChapters('　　1\n正文一。\n　　2\n正文二。\n　　3\n正文三。\n番外\n番外正文。')
+    expect(chapters.map((c) => c.title)).toEqual(['1', '2', '3'])
+    expect(chapters[2].content).toContain('番外')
+  })
+
+  it('只有两行递增数字时也不切章（门槛为 3）', () => {
+    const lines = ['第一章 正文', '正文。', '　　1', '正文一。', '　　2', '正文二。']
+    const chapters = splitTextChapters(lines.join('\n'))
+    expect(chapters.map((c) => c.title)).toEqual(['第一章 正文'])
   })
 })
 
