@@ -1,25 +1,36 @@
 <template>
-  <div class="flex h-full flex-col">
+  <div class="relative flex h-full flex-col">
     <div class="flex items-center justify-between px-4 py-3">
       <h2 class="text-sm font-medium text-ink">目录</h2>
-      <button class="tree-add-btn" title="新增章节" aria-label="新增章节" @click="addChapter">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          v-if="chapters.length > 1"
+          class="text-xs text-ink-secondary hover:text-ink transition-colors"
+          @click="toggleSelectMode"
+        >
+          {{ selecting ? '取消选择' : '多选' }}
+        </button>
+        <button class="tree-add-btn" title="新增章节" aria-label="新增章节" @click="addChapter">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
     </div>
-    <div class="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5">
+    <div class="flex-1 overflow-y-auto px-2 pb-4 space-y-0.5" :class="selecting ? 'pb-16' : ''">
       <div
         v-for="(chapter, index) in chapters"
         :key="chapter.id"
-        draggable="true"
+        :draggable="!editingId || editingId !== chapter.id"
         class="group flex items-center gap-2 rounded-card px-2 py-1.5 cursor-pointer transition-colors"
         :class="[
-          chapter.id === activeChapterId ? 'bg-accent/10 text-accent' : 'hover:bg-bg-card',
+          selecting
+            ? (selectedSet.has(chapter.id) ? 'bg-accent/10' : 'hover:bg-bg-card')
+            : (chapter.id === activeChapterId ? 'bg-accent/10 text-accent' : 'hover:bg-bg-card'),
           dragIndex === index ? 'opacity-50' : '',
           dragging && overIndex === index && dragIndex !== index ? 'chapter-drop-target' : '',
         ]"
-        @click="select(chapter.id)"
+        @click="onRowClick(chapter, index, $event)"
         @dragstart="onDragStart(index)"
         @dragover.prevent
         @drop.prevent="onDrop(index)"
@@ -29,7 +40,15 @@
         @touchend="onTouchEnd"
         @touchcancel="onTouchEnd"
       >
-        <span class="w-5 shrink-0 text-xs text-ink-placeholder">{{ index + 1 }}</span>
+        <!-- 多选：复选框；普通：序号 -->
+        <span
+          v-if="selecting"
+          class="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border text-[10px] text-white"
+          :class="selectedSet.has(chapter.id) ? 'border-accent bg-accent' : 'border-line bg-bg-card'"
+          @click.stop="toggleSelect(chapter.id, index, $event)"
+        >✓</span>
+        <span v-else class="w-5 shrink-0 text-xs text-ink-placeholder">{{ index + 1 }}</span>
+
         <template v-if="editingId === chapter.id">
           <input
             ref="editingInput"
@@ -40,21 +59,46 @@
             @blur="commitRename"
           />
         </template>
-        <span v-else class="min-w-0 flex-1 truncate text-sm" :class="chapter.id === activeChapterId ? 'text-accent' : 'text-ink'">
+        <span
+          v-else
+          class="min-w-0 flex-1 truncate text-sm"
+          :class="!selecting && chapter.id === activeChapterId ? 'text-accent' : 'text-ink'"
+        >
           {{ chapter.title }}
         </span>
 
         <!--
           操作按钮常驻显示：原先用 opacity-0 + group-hover，只在鼠标悬浮时才出现。
           移动端没有 hover，等于这些按钮在手机上根本不可见、无法使用。
+          多选模式下隐藏，改走底部批量条。
         -->
-        <div class="chapter-actions flex shrink-0 items-center gap-0.5">
+        <div v-if="!selecting" class="chapter-actions flex shrink-0 items-center gap-0.5">
           <button class="tree-btn" title="上移" aria-label="上移章节" :disabled="index === 0" @click.stop="move(chapter.id, -1)">↑</button>
           <button class="tree-btn" title="下移" aria-label="下移章节" :disabled="index === chapters.length - 1" @click.stop="move(chapter.id, 1)">↓</button>
           <button class="tree-btn" title="重命名" aria-label="重命名章节" @click.stop="startRename(chapter)">✎</button>
           <button class="tree-btn tree-btn-danger" title="删除" aria-label="删除章节" @click.stop="remove(chapter)">✕</button>
         </div>
       </div>
+    </div>
+
+    <!-- 多选底部操作条 -->
+    <div
+      v-if="selecting"
+      class="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 border-t border-line bg-bg-card px-3 py-2 shadow-card"
+    >
+      <span class="text-xs text-ink">已选 {{ selectedIds.length }}</span>
+      <button
+        class="text-xs text-ink-secondary hover:text-ink"
+        :disabled="!chapters.length"
+        @click="selectAll"
+      >{{ selectedIds.length >= chapters.length ? '全不选' : '全选' }}</button>
+      <div class="flex-1"></div>
+      <button
+        class="btn-secondary !px-2.5 !py-1 text-xs !text-danger"
+        :disabled="!selectedIds.length"
+        @click="batchRemove"
+      >删除</button>
+      <button class="btn-secondary !px-2.5 !py-1 text-xs" @click="toggleSelectMode">完成</button>
     </div>
   </div>
 </template>
@@ -79,6 +123,58 @@ const editingId = ref(null)
 const editingTitle = ref('')
 const editingInput = ref(null)
 
+// ---- 多选 ----
+const selecting = ref(false)
+const selectedIds = ref([])
+const selectedSet = computed(() => new Set(selectedIds.value))
+let lastClickedIndex = null
+
+function toggleSelectMode() {
+  selecting.value = !selecting.value
+  selectedIds.value = []
+  lastClickedIndex = null
+}
+
+function toggleSelect(id, index, event) {
+  const shift = event?.shiftKey
+  if (shift && lastClickedIndex != null && chapters.value[lastClickedIndex]) {
+    const [a, b] = [lastClickedIndex, index].sort((x, y) => x - y)
+    for (let i = a; i <= b; i++) {
+      const cid = chapters.value[i]?.id
+      if (cid && !selectedSet.value.has(cid)) selectedIds.value.push(cid)
+    }
+  } else if (selectedSet.value.has(id)) {
+    selectedIds.value = selectedIds.value.filter((x) => x !== id)
+  } else {
+    selectedIds.value.push(id)
+  }
+  lastClickedIndex = index
+}
+
+function selectAll() {
+  if (selectedIds.value.length >= chapters.value.length) {
+    selectedIds.value = []
+  } else {
+    selectedIds.value = chapters.value.map((c) => c.id)
+  }
+}
+
+async function batchRemove() {
+  if (!selectedIds.value.length) return
+  const n = selectedIds.value.length
+  if (!(await dialog.confirm(`确定删除选中的 ${n} 个章节？此操作不可撤销。`))) return
+  historyStore.capture(`批量删除 ${n} 个章节`)
+  const removed = bookStore.removeChapters(selectedIds.value)
+  selectedIds.value = []
+  selecting.value = false
+  const book = bookStore.activeBook
+  if (!book?.chapters?.some((c) => c.id === editorStore.activeChapterId)) {
+    const first = book?.chapters?.[0]
+    if (first) editorStore.setActiveChapter(first.id)
+  }
+  void removed
+}
+
 // 触摸端长按拖拽（iOS Safari 不支持 HTML5 拖放，必须自己实现）。
 // 桌面端仍走原生 draggable 那一套，两者共用 applyReorder。
 const {
@@ -94,19 +190,33 @@ const {
   onDrop: (from, to) => applyReorder(from, to),
 })
 
-/** 触摸拖拽与 HTML5 拖拽共用的排序提交。 */
+/**
+ * 排序提交：多选模式下拖「已选行」→ 整组移动；否则单章。
+ * target 为悬停行在原数组中的下标。
+ */
 function applyReorder(from, to) {
   if (from === to) return
-  const id = chapters.value[from]?.id
-  if (!id) return
-  historyStore.capture('拖拽排序章节')
-  bookStore.reorderChapter(id, to)
+  const draggedId = chapters.value[from]?.id
+  if (!draggedId) return
+  const dragGroup =
+    selecting.value && selectedSet.value.has(draggedId)
+      ? chapters.value.filter((c) => selectedSet.value.has(c.id)).map((c) => c.id)
+      : [draggedId]
+  historyStore.capture(dragGroup.length > 1 ? '批量调整章节顺序' : '拖拽排序章节')
+  if (dragGroup.length === 1) {
+    bookStore.reorderChapter(dragGroup[0], to)
+  } else {
+    bookStore.reorderChapters(dragGroup, to)
+  }
 }
 
-function select(id) {
-  // 长按拖拽结束后浏览器会补一个 click，吞掉它，避免拖完排序后误跳章节
+function onRowClick(chapter, index, event) {
   if (suppressClick()) return
-  editorStore.setActiveChapter(id)
+  if (selecting.value) {
+    toggleSelect(chapter.id, index, event)
+    return
+  }
+  editorStore.setActiveChapter(chapter.id)
 }
 
 function addChapter() {

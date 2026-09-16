@@ -55,6 +55,49 @@ describe('书本章节操作（P1）', () => {
     expect(store.activeBook.chapters[2].id).toBe(b.id)
   })
 
+  it('removeChapters 批量删除；删空则补空章节', () => {
+    const store = useBookStore()
+    store.createBook()
+    const a = store.activeBook.chapters[0]
+    const b = store.addChapter()
+    const c = store.addChapter()
+    expect(store.removeChapters([a.id, c.id])).toBe(2)
+    expect(store.activeBook.chapters).toHaveLength(1)
+    expect(store.activeBook.chapters[0].id).toBe(b.id)
+    expect(store.removeChapters([b.id])).toBe(1)
+    expect(store.activeBook.chapters).toHaveLength(1)
+    expect(store.activeBook.chapters[0].title).toBe('空章节')
+  })
+
+  it('reorderChapters 整组移动并保持组内相对顺序', () => {
+    const store = useBookStore()
+    store.createBook()
+    const a = store.activeBook.chapters[0]
+    const b = store.addChapter()
+    const c = store.addChapter()
+    const d = store.addChapter()
+    const e = store.addChapter()
+    // a b c d e → 选 a、c 插到 d 之前（悬停 index=3）
+    expect(store.reorderChapters([a.id, c.id], 3)).toBe(true)
+    const ids = store.activeBook.chapters.map((ch) => ch.id)
+    expect(ids).toEqual([b.id, a.id, c.id, d.id, e.id])
+  })
+
+  it('reorderChapters 落在组内时夹到组外，不产生半吊子顺序', () => {
+    const store = useBookStore()
+    store.createBook()
+    const a = store.activeBook.chapters[0]
+    const b = store.addChapter()
+    const c = store.addChapter()
+    // 选 b、c，拖到 c 自己身上（index 2）→ 应保持 b c 在原位
+    const before = store.activeBook.chapters.map((ch) => ch.id)
+    store.reorderChapters([b.id, c.id], 2)
+    expect(store.activeBook.chapters.map((ch) => ch.id)).toEqual(before)
+    // 拖到 a（index 0）→ b c 到最前
+    expect(store.reorderChapters([b.id, c.id], 0)).toBe(true)
+    expect(store.activeBook.chapters.map((ch) => ch.id)).toEqual([b.id, c.id, a.id])
+  })
+
   it('全局替换会更新字数和时间戳', () => {
     const store = useBookStore()
     store.createBook()

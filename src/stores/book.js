@@ -323,7 +323,7 @@ export const useBookStore = defineStore('book', {
       book.chapters.splice(target, 0, chapter)
       this.persist()
     },
-/** 把章节移动到指定下标（拖拽排序用）。 */
+    /** 把章节移动到指定下标（拖拽排序用）。 */
     reorderChapter(id, targetIndex) {
       const book = this.activeBook
       if (!book) return
@@ -334,6 +334,57 @@ export const useBookStore = defineStore('book', {
       const [chapter] = book.chapters.splice(idx, 1)
       book.chapters.splice(target, 0, chapter)
       this.persist()
+    },
+    /**
+     * 批量删除章节。ids 全删后若书空了则补一个空章节。
+     * 返回实际删除数量。
+     */
+    removeChapters(ids = []) {
+      const book = this.activeBook
+      if (!book || !Array.isArray(ids) || ids.length === 0) return 0
+      const idSet = new Set(ids)
+      const before = book.chapters.length
+      book.chapters = book.chapters.filter((c) => !idSet.has(c.id))
+      const removed = before - book.chapters.length
+      if (book.chapters.length === 0) {
+        book.chapters.push(createChapter())
+      }
+      if (removed > 0) this.persist()
+      return removed
+    },
+    /**
+     * 把一组章节整组移动到 targetIndex（原数组坐标），组内相对顺序不变。
+     * 语义：插入到「target 及其后第一个非选中章」之前；落点在组内时夹到组外。
+     */
+    reorderChapters(ids = [], targetIndex = 0) {
+      const book = this.activeBook
+      if (!book || !Array.isArray(ids) || ids.length === 0) return false
+      const chapters = book.chapters
+      const idSet = new Set(ids)
+      const moving = chapters.filter((c) => idSet.has(c.id))
+      if (moving.length === 0) return false
+
+      const rest = chapters.filter((c) => !idSet.has(c.id))
+      const target = Math.min(Math.max(0, targetIndex), Math.max(0, chapters.length - 1))
+      // target 及其后第一个「不动」的章 → 插在它前面；全是 moving 则插到末尾
+      let insertAt = rest.length
+      for (let i = target; i < chapters.length; i++) {
+        if (!idSet.has(chapters[i].id)) {
+          insertAt = rest.findIndex((c) => c.id === chapters[i].id)
+          break
+        }
+      }
+
+      const next = [
+        ...rest.slice(0, insertAt),
+        ...moving,
+        ...rest.slice(insertAt),
+      ]
+      const same = next.length === chapters.length && next.every((c, i) => c.id === chapters[i].id)
+      if (same) return false
+      book.chapters = next
+      this.persist()
+      return true
     },
     /**
      * 在当前章节光标位置拆分章节：原章节保留为前半段，后半段生成新章节。
