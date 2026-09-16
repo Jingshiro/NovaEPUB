@@ -36,6 +36,42 @@ describe('embedHtmlBlocks（结构封装）', () => {
     const html = '<p>a</p><h1>b</h1><ul><li>c</li></ul>'
     expect(embedHtmlBlocks(html)).toBe(html)
   })
+
+  it('EpubPress 透明包装 div 拆包后正文原生可编辑（不进 htmlBlock）', () => {
+    // 来自真实 EpubPress 导出：空 div + 无 class 外层 + id 包装 + 大量 <p>
+    const html = [
+      '<div id="s1"></div>',
+      '<div>',
+      '<h1>30歲剩嚮導會被塔硬塞流浪小狗</h1>',
+      '<div id="postscript">',
+      '<p>第1章 百分百匹配？</p>',
+      '<p>303的燈光熄滅，趨於穩定的精神力隨著大門打開緩緩逸散。</p>',
+      '<p>「後面就都交給你了。」楊沙溪鄭重地握手交接。</p>',
+      '</div>',
+      '</div>',
+    ].join('')
+    const out = embedHtmlBlocks(html)
+    expect(hasHtmlBlocks(out)).toBe(false)
+    expect(out).toContain('<h1>')
+    expect(out).toContain('第1章 百分百匹配？')
+    expect(out).toContain('<p>')
+    // 不应整章被编码成一个占位
+    expect(out.indexOf(PLACEHOLDER_ATTR)).toBe(-1)
+  })
+
+  it('透明包装内嵌套带 class 的复杂块仍整块进 htmlBlock', () => {
+    const html = [
+      '<div>',
+      '<p>可编辑段落</p>',
+      '<div class="discord-message"><span class="discord-username">镜</span></div>',
+      '</div>',
+    ].join('')
+    const out = embedHtmlBlocks(html)
+    expect(out).toContain('<p>可编辑段落</p>')
+    expect(hasHtmlBlocks(out)).toBe(true)
+    const expanded = expandHtmlBlocks(out)
+    expect(expanded).toContain('discord-message')
+  })
 })
 
 describe('HtmlBlock TipTap 节点（往返）', () => {
