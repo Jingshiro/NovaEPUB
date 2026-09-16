@@ -179,7 +179,7 @@
       class="fixed bottom-0 left-64 right-0 z-20 flex items-center gap-3 border-t border-line bg-bg-card px-6 py-3 shadow-card max-md:left-0 max-md:px-4"
     >
       <span class="text-sm text-ink">已选 {{ selected.length }} 本</span>
-      <button class="btn-secondary !px-3 !py-1.5 text-xs" :disabled="!selected.length" @click="selectAll">全选</button>
+      <button class="btn-secondary !px-3 !py-1.5 text-xs" :disabled="!books.length || selected.length >= books.length" @click="selectAll">全选</button>
       <button class="btn-secondary !px-3 !py-1.5 text-xs" :disabled="!selected.length" @click="batchModalOpen = true">批量设置元数据</button>
       <button class="btn-secondary !px-3 !py-1.5 text-xs !text-danger" :disabled="!selected.length" @click="batchDelete">批量删除</button>
       <div class="flex-1"></div>

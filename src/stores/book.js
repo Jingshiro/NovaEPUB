@@ -7,7 +7,7 @@ import { scheduleDraftSave, flushDraftSaves, removeDraft, cancelDraftSave } from
 import { replaceAllInBook } from '../utils/search'
 import { mergeHtmlFragments } from '../utils/chapterOps'
 import { useTemplateStore } from './templates'
-import { hydrateBookAssets, flushBookAssets, leanBookClone, deleteBookAssets } from '../utils/assetStore'
+import { hydrateBookAssets, flushBookAssets, leanBookClone, deleteBookAssets, purgeEntryBlobUrls } from '../utils/assetStore'
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 const DEFAULT_PUBLISH_DATE = new Date().toISOString().slice(0, 10)
@@ -211,8 +211,9 @@ export const useBookStore = defineStore('book', {
       }
       cancelDraftSave(id)
       removeDraft(id).catch((err) => console.warn('[draft] 删除草稿失败', err))
-      // 清掉资产层的二进制（图片/字体/封面）
+      // 清掉资产层的二进制（图片/字体/封面）与预览用 blob URL 缓存
       deleteBookAssets(id).catch((err) => console.warn('[assets] 删除资产失败', err))
+      purgeEntryBlobUrls(id)
     },
     /**
      * 批量更新多本书的元数据（书架批量操作用）。

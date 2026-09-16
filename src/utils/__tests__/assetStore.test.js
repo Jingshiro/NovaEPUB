@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   putAssetDataUrl, getAssetDataUrl, deleteBookAssets,
   flushBookAssets, hydrateBookAssets, assetLayerSupported, leanBookClone,
+  purgeEntryBlobUrls, getEntryBlobUrl,
 } from '../assetStore'
 
 describe('assetStore（node 无 IndexedDB 环境）', () => {
@@ -57,5 +58,15 @@ describe('assetStore（node 无 IndexedDB 环境）', () => {
 
   it('leanBookClone：处理空对象', () => {
     expect(leanBookClone()).toEqual({})
+  })
+
+  it('purgeEntryBlobUrls：无缓存时安全 no-op，不抛错', () => {
+    expect(() => purgeEntryBlobUrls('b1')).not.toThrow()
+  })
+
+  it('getEntryBlobUrl：无 dataUrl 且无 IndexedDB 时返回 null', async () => {
+    const book = { id: 'b1' }
+    const entry = { id: 'i1', dataUrl: '' }
+    expect(await getEntryBlobUrl(book, entry)).toBeNull()
   })
 })

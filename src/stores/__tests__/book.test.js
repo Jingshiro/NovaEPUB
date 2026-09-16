@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useBookStore, createChapter, createBook, countWords } from '../book'
+import * as assetStore from '../../utils/assetStore'
 
 describe('book store', () => {
   beforeEach(() => {
@@ -69,7 +70,6 @@ describe('book store', () => {
   it('countWords 处理空字符串', () => {
     expect(countWords('')).toBe(0)
   })
-})
 
   it('createBook 默认包含书内图库与样式快照数组', () => {
     const book = createBook()
@@ -85,3 +85,18 @@ describe('book store', () => {
     store.addTemplateStyles('.other{margin:0}')
     expect(store.activeBook.styles).toEqual(['.q{color:red}', '.other{margin:0}'])
   })
+
+  it('deleteBook 会回收该书的 blob URL 缓存并清理 IndexedDB 资产', async () => {
+    const purgeSpy = vi.spyOn(assetStore, 'purgeEntryBlobUrls').mockImplementation(() => {})
+    const deleteAssetsSpy = vi.spyOn(assetStore, 'deleteBookAssets').mockResolvedValue(undefined)
+    const store = useBookStore()
+    const id = store.createBook()
+    store.deleteBook(id)
+    expect(store.library[id]).toBeUndefined()
+    expect(purgeSpy).toHaveBeenCalledWith(id)
+    expect(deleteAssetsSpy).toHaveBeenCalledWith(id)
+    await Promise.resolve()
+    purgeSpy.mockRestore()
+    deleteAssetsSpy.mockRestore()
+  })
+})

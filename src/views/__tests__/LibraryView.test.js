@@ -20,6 +20,7 @@ describe('LibraryView', () => {
   let router
 
   beforeEach(async () => {
+    localStorage.clear()
     pinia = createPinia()
     setActivePinia(pinia)
     router = makeRouter()
@@ -45,5 +46,31 @@ describe('LibraryView', () => {
     await item.trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('editor')
+  })
+
+  it('未选中任何书时全选按钮可用；全选后禁用', async () => {
+    const wrapper = mount(LibraryView, { global: { plugins: [pinia, router] } })
+    const store = (await import('../../stores/book')).useBookStore()
+    store.createBook()
+    store.createBook()
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+
+    // 进入批量选择模式
+    const selectModeBtn = wrapper.findAll('button').find((b) => b.text() === '批量选择')
+    expect(selectModeBtn).toBeTruthy()
+    await selectModeBtn.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const selectAllBtn = wrapper.findAll('button').find((b) => b.text() === '全选')
+    expect(selectAllBtn).toBeTruthy()
+    expect(selectAllBtn.attributes('disabled')).toBeUndefined()
+
+    await selectAllBtn.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('已选 2 本')
+    // 已全选后按钮应禁用
+    const selectAllAfter = wrapper.findAll('button').find((b) => b.text() === '全选')
+    expect(selectAllAfter.attributes('disabled')).toBeDefined()
   })
 })
