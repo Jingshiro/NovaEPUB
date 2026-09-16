@@ -116,6 +116,7 @@ const bookStore = useBookStore()
 const editorStore = useEditorStore()
 const historyStore = useHistoryStore()
 const dialog = useDialogStore()
+const emit = defineEmits(['navigate'])
 
 const chapters = computed(() => bookStore.activeBook?.chapters || [])
 const activeChapterId = computed(() => editorStore.activeChapterId)
@@ -232,6 +233,7 @@ function onRowClick(chapter, index, event) {
     return
   }
   editorStore.setActiveChapter(chapter.id)
+  emit('navigate', chapter.id)
 }
 
 function addChapter() {

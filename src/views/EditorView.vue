@@ -75,12 +75,24 @@
     </header>
 
     <!-- 三栏主体：窄屏时左右面板浮层化 -->
-    <div class="flex flex-1 overflow-hidden">
+    <div class="relative flex flex-1 overflow-hidden">
+      <!-- 窄屏目录遮罩：点空白收起 -->
+      <div
+        v-if="!uiStore.sidebarCollapsed"
+        class="absolute inset-0 z-20 bg-black/25 lg:hidden"
+        @click="uiStore.toggleSidebar()"
+      />
       <aside
         v-show="!uiStore.sidebarCollapsed"
-        class="w-60 shrink-0 border-r border-line bg-bg-muted max-lg:absolute max-lg:inset-y-14 max-lg:left-0 max-lg:z-30 max-lg:w-64 max-lg:shadow-card"
+        class="w-60 shrink-0 border-r border-line bg-bg-muted max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:w-[min(100%,22rem)] max-lg:shadow-card"
       >
-        <ChapterTree />
+        <!-- 窄屏全宽浮层：给关闭按钮，目录/标题/操作键才有地方放 -->
+        <button
+          class="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-line bg-bg-card text-ink-placeholder shadow-card lg:hidden"
+          title="收起目录"
+          @click="uiStore.toggleSidebar()"
+        >✕</button>
+        <ChapterTree @navigate="onChapterNavigate" />
       </aside>
 
       <main class="min-w-0 flex-1 overflow-hidden">
@@ -154,6 +166,14 @@ const activeChapter = computed(() => editorStore.activeChapter)
 /** 实际生效的模板：本书书内模板优先，否则全局模板池（B2）。 */
 const effectiveTemplates = computed(() => templateStore.effectiveTemplates(bookStore.activeBook?.id))
 const { exportBook: doExport } = useEpubExporter()
+
+/** 窄屏点章节后收起目录浮层，直接看正文。 */
+function onChapterNavigate() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+  if (window.matchMedia('(max-width: 1023px)').matches) {
+    uiStore.sidebarCollapsed = true
+  }
+}
 
 const templateModalOpen = ref(false)
 const editingTemplate = ref(null)
