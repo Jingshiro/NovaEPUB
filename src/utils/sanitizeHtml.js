@@ -24,7 +24,7 @@ function isDangerousUrl(value) {
   if (!v) return false
   // 相对路径 / 纯片段视为安全
   if (v.startsWith('#')) return false
-  if (!/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(v)) return false
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(v)) return false
   const lower = v.toLowerCase()
   for (const p of SAFE_PREFIXES) {
     if (lower.startsWith(p.toLowerCase())) return false

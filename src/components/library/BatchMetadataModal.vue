@@ -36,7 +36,7 @@
 import { reactive } from 'vue'
 import AppModal from '../common/AppModal.vue'
 
-const props = defineProps({
+defineProps({
   open: { type: Boolean, default: false },
   count: { type: Number, default: 0 },
 })

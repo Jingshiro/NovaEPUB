@@ -89,7 +89,7 @@
             <EditorCanvas :chapter="activeChapter" @manage-templates="openTemplateEditor(null)" />
           </div>
           <div v-show="uiStore.previewMode" class="h-full">
-            <MobilePreviewFrame :book="book" :chapter="activeChapter" :templates="effectiveTemplates" />
+            <BookPreviewFrame :book="book" :chapter="activeChapter" :templates="effectiveTemplates" />
           </div>
         </div>
       </main>
@@ -127,13 +127,14 @@ import { useEditorStore } from '../stores/editor'
 import { useUiStore } from '../stores/ui'
 import { useTemplateStore } from '../stores/templates'
 import { useHistoryStore } from '../stores/history'
+import { useDialogStore } from '../stores/dialog'
 import { useEpubExporter } from '../hooks/useEpubExporter'
 import { flushDraftSaves } from '../utils/draft'
 import { checkEpubStructure } from '../utils/epubCheck'
 import ChapterTree from '../components/sidebar/ChapterTree.vue'
 import MetadataPanel from '../components/sidebar/MetadataPanel.vue'
 import EditorCanvas from '../components/editor/EditorCanvas.vue'
-import MobilePreviewFrame from '../components/preview/MobilePreviewFrame.vue'
+import BookPreviewFrame from '../components/preview/BookPreviewFrame.vue'
 import BookMetadataModal from '../components/editor/BookMetadataModal.vue'
 import TemplateEditorModal from '../components/editor/TemplateEditorModal.vue'
 import FindReplaceModal from '../components/editor/FindReplaceModal.vue'
@@ -146,6 +147,7 @@ const editorStore = useEditorStore()
 const uiStore = useUiStore()
 const templateStore = useTemplateStore()
 const historyStore = useHistoryStore()
+const dialog = useDialogStore()
 
 const book = computed(() => bookStore.activeBook || {})
 const activeChapter = computed(() => editorStore.activeChapter)
@@ -229,13 +231,13 @@ async function exportBook() {
   if (report.errors.length) {
     const lines = report.errors.slice(0, 10).map((e) => `- ${e.message}`)
     const more = report.errors.length > 10 ? `\n… 以及另外 ${report.errors.length - 10} 个问题` : ''
-    window.alert(`导出前自检未通过，请先修复以下 ${report.errors.length} 个问题：\n\n${lines.join('\n')}${more}`)
+    await dialog.alert(`导出前自检未通过，请先修复以下 ${report.errors.length} 个问题：\n\n${lines.join('\n')}${more}`, '无法导出')
     return
   }
   if (report.warnings.length) {
     const lines = report.warnings.slice(0, 8).map((e) => `- ${e.message}`)
     const more = report.warnings.length > 8 ? `\n… 以及另外 ${report.warnings.length - 8} 条` : ''
-    if (!window.confirm(`导出前发现 ${report.warnings.length} 条提示，仍要导出吗？\n\n${lines.join('\n')}${more}`)) {
+    if (!(await dialog.confirm(`导出前发现 ${report.warnings.length} 条提示，仍要导出吗？\n\n${lines.join('\n')}${more}`, '导出提示'))) {
       return
     }
   }
@@ -243,7 +245,7 @@ async function exportBook() {
     await doExport(book.value, { templates: effectiveTemplates.value })
   } catch (err) {
     console.error(err)
-    window.alert('导出失败：' + (err.message || err))
+    await dialog.alert('导出失败：' + (err.message || err), '导出失败')
   }
 }
 </script>

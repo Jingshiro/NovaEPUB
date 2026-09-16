@@ -60,6 +60,68 @@ function validatePayload(payload) {
   }
 }
 
+/** 章节字段白名单校验；返回清洗后的章节或 null。 */
+function sanitizeChapterRecord(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const id = typeof raw.id === 'string' && raw.id ? raw.id : null
+  if (!id) return null
+  const title = typeof raw.title === 'string' ? raw.title : '未命名章节'
+  const content = typeof raw.content === 'string' ? raw.content : ''
+  const now = new Date().toISOString()
+  return {
+    id,
+    title,
+    content,
+    wordCount: Number.isFinite(raw.wordCount) ? raw.wordCount : 0,
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : now,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : now,
+  }
+}
+
+/**
+ * 清洗备份里的一本书：只保留已知字段，章节做类型白名单。
+ * 不合法的书返回 null（调用方跳过）。
+ */
+export function sanitizeBackupBook(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const id = typeof raw.id === 'string' && raw.id ? raw.id : null
+  if (!id) return null
+  const chapters = Array.isArray(raw.chapters)
+    ? raw.chapters.map(sanitizeChapterRecord).filter(Boolean)
+    : []
+  if (chapters.length === 0) return null
+
+  const str = (v, fallback = '') => (typeof v === 'string' ? v : fallback)
+  const strList = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [])
+  const assetList = (v) => {
+    if (!Array.isArray(v)) return []
+    return v.filter((e) => e && typeof e === 'object' && typeof e.id === 'string')
+  }
+  const now = new Date().toISOString()
+
+  return {
+    id,
+    title: str(raw.title, '未命名书籍'),
+    author: str(raw.author, '佚名'),
+    publishDate: str(raw.publishDate),
+    language: str(raw.language, 'zh-CN'),
+    identifier: str(raw.identifier, id),
+    description: str(raw.description),
+    publisher: str(raw.publisher),
+    subject: str(raw.subject),
+    rights: str(raw.rights),
+    cover: typeof raw.cover === 'string' ? raw.cover : null,
+    createdAt: str(raw.createdAt, now),
+    updatedAt: str(raw.updatedAt, now),
+    chapters,
+    images: assetList(raw.images),
+    resources: assetList(raw.resources),
+    styles: strList(raw.styles),
+    ...(typeof raw.coverIdb === 'number' ? { coverIdb: raw.coverIdb } : {}),
+    ...(Array.isArray(raw.importWarnings) ? { importWarnings: strList(raw.importWarnings) } : {}),
+  }
+}
+
 /** 解析备份文本，返回书数组；格式不对时抛错。（向后兼容的旧入口） */
 export function parseBackup(text = '') {
   return parseBackupBundle(text).books
@@ -68,6 +130,7 @@ export function parseBackup(text = '') {
 /**
  * 解析完整备份包：{ books, templates, bookTemplates }。
  * v1 备份没有模板字段，返回空数组/空对象，行为等同旧版。
+ * books 会经 sanitizeBackupBook 清洗，不合法的书直接丢弃。
  */
 export function parseBackupBundle(text = '') {
   let payload
@@ -77,9 +140,10 @@ export function parseBackupBundle(text = '') {
     throw new Error('备份文件不是合法的 JSON')
   }
   validatePayload(payload)
+  const books = payload.books.map(sanitizeBackupBook).filter(Boolean)
   return {
-    books: payload.books,
-    templates: Array.isArray(payload.templates) ? payload.templates : [],
+    books,
+    templates: Array.isArray(payload.templates) ? payload.templates.filter((t) => t && typeof t === 'object' && t.id) : [],
     bookTemplates: payload.bookTemplates && typeof payload.bookTemplates === 'object' ? payload.bookTemplates : {},
   }
 }
@@ -94,11 +158,11 @@ export function backupFileName(date = new Date()) {
 
 /** 生成单书工程文件名：书名（清理非法字符），形如 我的书.novaepub。 */
 export function singleBookFileName(title = '') {
-  return `${String(title || '未命名书籍')
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 80) || '未命名书籍'}.novaepub`
+  let name = String(title || '未命名书籍')
+  name = name.replace(/[\\/:*?"<>|]/g, '-')
+  // 剥离控制字符（code point < 32），避免非法文件名
+  name = Array.from(name, (ch) => (ch.codePointAt(0) < 32 ? '-' : ch)).join('')
+  return `${name.replace(/\s+/g, ' ').trim().slice(0, 80) || '未命名书籍'}.novaepub`
 }
 
 /** 把单本书序列化为 .novaepub 工程文件载荷（复用整库备份格式，bookCount=1）。 */

@@ -26,7 +26,7 @@ describe('端到端：从书架点击进入编辑器', () => {
     pinia = createPinia()
     setActivePinia(pinia)
     const store = useBookStore()
-    const id = store.createBook()
+    store.createBook()
     store.updateBook({ title: '端到端书' })
     store.activeBookId = null // 模拟从书架点击时尚未 loadBook
     router = makeRouter()

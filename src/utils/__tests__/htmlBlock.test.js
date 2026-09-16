@@ -5,7 +5,6 @@ import StarterKit from '@tiptap/starter-kit'
 import { embedHtmlBlocks, expandHtmlBlocks, hasHtmlBlocks, PLACEHOLDER_ATTR } from '../htmlBlock'
 import { StyleAttributes } from '../tiptapStyleAttrs'
 import { HtmlBlock } from '../tiptapHtmlBlock'
-import { useBookStore } from '../../stores/book'
 import { createPinia, setActivePinia } from 'pinia'
 
 describe('embedHtmlBlocks（结构封装）', () => {

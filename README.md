@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://www.gnu.org/licenses/agpl-3.0"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License: AGPL v3"></a>
-  <a href="https://github.com/Jingshiro/NovaEPUB/actions"><img src="https://img.shields.io/badge/tests-211%20unit%20passing-brightgreen" alt="Tests"></a>
+  <a href="https://github.com/Jingshiro/NovaEPUB/actions"><img src="https://img.shields.io/badge/tests-216%20unit%20passing-brightgreen" alt="Tests"></a>
   <img src="https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vuedotjs" alt="Vue 3">
   <img src="https://img.shields.io/badge/Vite-5.x-646CFF?logo=vite" alt="Vite">
 </p>
@@ -59,6 +59,7 @@
 
 - 标准 **EPUB 2**（OPF + NCX + XHTML + CSS），mimetype 首项 STORE 不压缩，懂的都懂。
 - 图片 / 字体 / CSS / 媒体完整打包，不会出现「图哪去了?」的鬼故事。
+- 说明：**导出格式为 EPUB 2**（兼容面最广）。导入时可读 EPUB 3 的 `nav.xhtml` 目录，但导出不会生成 `nav.xhtml`。
 
 ### 移动端
 
@@ -110,7 +111,7 @@ npm run build
     /common      # 基础组件
     /editor      # 画布 / 菜单栏 / 模板面板 / 元数据弹窗
     /sidebar     # 章节树、样式模板、元数据侧栏
-    /preview     # 整书连续阅读预览
+    /preview     # 整书连续阅读预览（BookPreviewFrame）
     /library     # 批量元数据、云同步弹窗
   /stores        # book / editor / history / templates / ui
   /hooks         # 导入 / 导出封装

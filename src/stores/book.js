@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, reactive } from 'vue'
+import { reactive } from 'vue'
 import { uuid } from '../utils/id'
 import { loadLibrary, saveLibrary } from '../utils/storage'
 import { upgradeBook } from '../utils/migrate'
@@ -55,14 +55,23 @@ export function createBook(overrides = {}) {
   }
 }
 
-/** 统计章节正文字数（去除 HTML 标签后的可见字符）。 */
+/**
+ * 统计章节正文字数。
+ * 中日韩等表意文字按「字」计；拉丁字母/数字连续串按「词」计（空格/标点分隔）；
+ * 其余可见字符（标点、空白折叠后）不计入。
+ */
 export function countWords(html = '') {
-  const text = html
+  const text = String(html || '')
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
     .trim()
-  return text ? text.length : 0
+  if (!text) return 0
+  // 连续拉丁词/数字
+  const latinWords = text.match(/[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*/g) || []
+  // CJK：假名 / 统一表意扩展 / 基本区 / 兼容 / 谚文
+  const cjkChars = text.match(/[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯]/g) || []
+  return latinWords.length + cjkChars.length
 }
 
 export const useBookStore = defineStore('book', {

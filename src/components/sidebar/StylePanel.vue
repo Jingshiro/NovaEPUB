@@ -67,6 +67,7 @@ import { ref, computed } from 'vue'
 import { useEditorStore } from '../../stores/editor'
 import { useBookStore } from '../../stores/book'
 import { useTemplateStore } from '../../stores/templates'
+import { useDialogStore } from '../../stores/dialog'
 import { applyTemplateToEditor } from '../../utils/template'
 import { TARGET_LABELS } from '../../utils/template'
 
@@ -74,6 +75,7 @@ const emit = defineEmits(['add', 'edit'])
 const editorStore = useEditorStore()
 const bookStore = useBookStore()
 const templateStore = useTemplateStore()
+const dialog = useDialogStore()
 templateStore.ensureLoaded()
 
 const scope = ref('book')
@@ -103,8 +105,8 @@ function apply(tpl) {
   })
 }
 
-function remove(tpl) {
-  if (!window.confirm(`删除模板「${tpl.name}」？`)) return
+async function remove(tpl) {
+  if (!(await dialog.confirm(`删除模板「${tpl.name}」？`))) return
   if (scope.value === 'book' && bookList.value.some((t) => t.id === tpl.id)) {
     templateStore.deleteBookTemplate(bookId.value, tpl.id)
   } else {
@@ -114,12 +116,12 @@ function remove(tpl) {
 
 function copyFromGlobal() {
   const count = templateStore.copyGlobalToBook(bookId.value)
-  if (count === 0) window.alert('全局模板已全部在本书模板里了。')
+  if (count === 0) dialog.alert('全局模板已全部在本书模板里了。')
 }
 
-function resetBook() {
+async function resetBook() {
   if (!bookList.value.length) return
-  if (window.confirm('清空本书的全部书内模板？之后本书将回退使用全局模板池。')) {
+  if (await dialog.confirm('清空本书的全部书内模板？之后本书将回退使用全局模板池。')) {
     templateStore.clearBookTemplates(bookId.value)
   }
 }

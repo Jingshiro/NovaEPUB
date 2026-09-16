@@ -1,6 +1,7 @@
 <template>
   <router-view />
   <DraftRecoveryModal />
+  <DialogHost />
   <!-- 本地存储失败提示条：配额满 / 撤销后资产缺失 -->
   <div
     v-if="uiStore.storageError"
@@ -14,6 +15,7 @@
 <script setup>
 import { watch } from 'vue'
 import DraftRecoveryModal from './components/common/DraftRecoveryModal.vue'
+import DialogHost from './components/common/DialogHost.vue'
 import { useUiStore } from './stores/ui'
 
 const uiStore = useUiStore()

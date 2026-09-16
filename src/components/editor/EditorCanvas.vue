@@ -56,6 +56,7 @@ import { useEditorStore } from '../../stores/editor'
 import { useBookStore } from '../../stores/book'
 import { useHistoryStore } from '../../stores/history'
 import { useTemplateStore } from '../../stores/templates'
+import { useDialogStore } from '../../stores/dialog'
 import { applyTemplateToEditor, injectTemplateCss } from '../../utils/template'
 import { scopeCss } from '../../utils/cssScope'
 import { embedHtmlBlocks } from '../../utils/htmlBlock'
@@ -76,6 +77,7 @@ const editorStore = useEditorStore()
 const bookStore = useBookStore()
 const historyStore = useHistoryStore()
 const templateStore = useTemplateStore()
+const dialog = useDialogStore()
 templateStore.ensureLoaded()
 
 const editorContainer = ref(null)
@@ -259,17 +261,14 @@ function showTemplateMenuAt(pos) {
 // 长按期间浏览器原生会拉起文本选择，长按结束时若已有选区则直接弹模板菜单。
 const LONG_PRESS_MS = 500
 let longPressTimer = null
-let longPressFired = false
 let longPressStartPos = null
 
 function onTouchStart(e) {
   if (e.touches.length !== 1) return
   const touch = e.touches[0]
-  longPressFired = false
   longPressStartPos = { x: touch.clientX, y: touch.clientY }
   clearTimeout(longPressTimer)
   longPressTimer = setTimeout(() => {
-    longPressFired = true
     onLongPress(e)
   }, LONG_PRESS_MS)
 }
@@ -333,7 +332,7 @@ function splitCurrentChapter() {
   if (!ed || !chapter) return
   const parts = splitEditorContentAt(ed)
   if (!parts) {
-    window.alert('请把光标移到需要拆分的正文中间位置')
+    dialog.alert('请把光标移到需要拆分的正文中间位置')
     return
   }
   historyStore.capture('拆分章节')
@@ -347,7 +346,7 @@ function mergeCurrentChapter() {
   const chapters = bookStore.activeBook?.chapters || []
   const idx = chapters.findIndex((c) => c.id === chapter.id)
   if (idx === -1 || idx >= chapters.length - 1) {
-    window.alert('当前已经是最后一章，无法向后合并')
+    dialog.alert('当前已经是最后一章，无法向后合并')
     return
   }
   historyStore.capture('合并章节')

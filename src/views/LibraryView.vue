@@ -211,6 +211,7 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import { useTemplateStore } from '../stores/templates'
+import { useDialogStore } from '../stores/dialog'
 import { useEpubParser } from '../hooks/useEpubParser'
 import { buildFullBackupText, buildFullBookBackupText, singleBookFileName, parseBackupBundle } from '../utils/backup'
 import { sanitizeImportedBook } from '../utils/sanitizeHtml'
@@ -220,6 +221,7 @@ import SyncModal from '../components/library/SyncModal.vue'
 const router = useRouter()
 const bookStore = useBookStore()
 const templateStore = useTemplateStore()
+const dialog = useDialogStore()
 const { parsing, error, parseFile } = useEpubParser()
 
 const books = computed(() => bookStore.booksList)
@@ -252,17 +254,17 @@ function selectAll() {
 
 function applyBatchMetadata(patch) {
   if (!Object.keys(patch).length) {
-    window.alert('没有填写任何要修改的字段')
+    dialog.alert('没有填写任何要修改的字段')
     return
   }
   const changed = bookStore.batchUpdateBooks([...selected.value], patch)
   batchModalOpen.value = false
-  window.alert(`已批量更新 ${changed.length} 本书的元数据。`)
+  dialog.alert(`已批量更新 ${changed.length} 本书的元数据。`)
 }
 
-function batchDelete() {
+async function batchDelete() {
   if (!selected.value.length) return
-  if (window.confirm(`确定删除选中的 ${selected.value.length} 本书？此操作不可撤销。`)) {
+  if (await dialog.confirm(`确定删除选中的 ${selected.value.length} 本书？此操作不可撤销。`)) {
     for (const id of selected.value) bookStore.deleteBook(id)
     selected.value = []
     selecting.value = false
@@ -311,7 +313,7 @@ async function importFile(file) {
       const warnings = book.importWarnings.slice(0, 8)
       const more = book.importWarnings.length - warnings.length
       const suffix = more > 0 ? `\n… 以及另外 ${more} 条` : ''
-      window.alert(`导入完成，但遇到一些兼容性问题：\n\n- ${warnings.join('\n- ')}${suffix}`)
+      dialog.alert(`导入完成，但遇到一些兼容性问题：\n\n- ${warnings.join('\n- ')}${suffix}`, '导入完成')
     }
     router.push({ name: 'editor', params: { bookId: id } })
   } catch (err) {
@@ -319,8 +321,8 @@ async function importFile(file) {
   }
 }
 
-function confirmDelete(book) {
-  if (window.confirm(`确定删除《${book.title}》？`)) {
+async function confirmDelete(book) {
+  if (await dialog.confirm(`确定删除《${book.title}》？`)) {
     bookStore.deleteBook(book.id)
   }
 }
@@ -362,11 +364,11 @@ async function onBackupChange(e) {
     const text = await file.text()
     const { books, templates, bookTemplates } = parseBackupBundle(text)
     if (!books.length) {
-      window.alert('备份里没有任何书籍。')
+      dialog.alert('备份里没有任何书籍。')
       return
     }
     const tplNote = templates.length ? `，以及 ${templates.length} 个全局模板` : ''
-    if (!window.confirm(`备份包含 ${books.length} 本书${tplNote}。同 id 的书会被备份内容覆盖，确定导入？`)) return
+    if (!(await dialog.confirm(`备份包含 ${books.length} 本书${tplNote}。同 id 的书会被备份内容覆盖，确定导入？`, '导入备份'))) return
     for (const book of books) {
       const id = bookStore.importBook(sanitizeImportedBook(book))
       await bookStore.hydrateBook(id)
@@ -374,9 +376,9 @@ async function onBackupChange(e) {
     const addedTpl = templateStore.importTemplates(templates)
     const addedBookTpl = templateStore.importBookTemplates(bookTemplates)
     const tplMsg = addedTpl || addedBookTpl ? `，新增模板 ${addedTpl + addedBookTpl} 个` : ''
-    window.alert(`已导入 ${books.length} 本书籍${tplMsg}。`)
+    dialog.alert(`已导入 ${books.length} 本书籍${tplMsg}。`, '导入完成')
   } catch (err) {
-    window.alert('导入备份失败：' + (err.message || err))
+    dialog.alert('导入备份失败：' + (err.message || err), '导入失败')
   }
 }
 </script>

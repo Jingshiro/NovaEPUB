@@ -6,7 +6,7 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import EditorView from '../EditorView.vue'
 import { useBookStore } from '../../stores/book'
 
-function makeRouter(bookId) {
+function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [

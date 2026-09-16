@@ -93,8 +93,6 @@ export async function downloadBackup(provider, cfg, name, fetchImpl = fetch) {
   return impl.get(cfg, `backups/${name}`, fetchImpl)
 }
 
-function pad(n) { return String(n).padStart(2, '0') }
-
 /** 20260912-120405 → 2026-09-12 12:04:05 (UTC) */
 function labelFromStamp(stem) {
   const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/.exec(stem)

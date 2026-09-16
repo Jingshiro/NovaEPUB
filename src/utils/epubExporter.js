@@ -162,13 +162,6 @@ function mimeToExt(type) {
   return 'png'
 }
 
-function imageMediaType(type) {
-  if (type === 'jpeg') return 'image/jpeg'
-  if (type === 'gif') return 'image/gif'
-  if (type === 'webp') return 'image/webp'
-  return 'image/png'
-}
-
 /** 从章节正文提取 dataURL 图片，改写为 images/ 相对路径。 */
 function rewriteImages(content, counter) {
   const images = []

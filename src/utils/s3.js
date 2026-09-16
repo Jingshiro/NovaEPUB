@@ -73,7 +73,6 @@ export function amzUriEncode(str, encodeSlash = true) {
 
 /** UTC 时钟串：ISO基本格式 yyyymmddThhmmssZ 与 yyyymmdd。 */
 export function amzDates(date = new Date()) {
-  const pad = (n) => String(n).padStart(2, '0')
   const iso = date.toISOString()
   const amzDate = iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '')
   return { amzDate, dateStamp: amzDate.slice(0, 8) }

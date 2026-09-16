@@ -116,6 +116,7 @@ import { reactive, ref, watch } from 'vue'
 import AppModal from '../common/AppModal.vue'
 import { useBookStore } from '../../stores/book'
 import { useTemplateStore } from '../../stores/templates'
+import { useDialogStore } from '../../stores/dialog'
 import { testConnection, uploadBackup, listRemoteBackups, downloadBackup } from '../../utils/sync'
 import { loadSyncConfig, saveSyncConfig } from '../../utils/syncConfig'
 import { buildFullBackupText, parseBackupBundle } from '../../utils/backup'
@@ -126,6 +127,7 @@ const emit = defineEmits(['close'])
 
 const bookStore = useBookStore()
 const templateStore = useTemplateStore()
+const dialog = useDialogStore()
 const busy = ref(false)
 const mode = ref('')
 const status = ref('')
@@ -223,7 +225,7 @@ function doRefreshList() {
 
 async function doRestore(bk) {
   const c = currentCfg()
-  const ok = window.confirm(`确定用「${bk.label}」覆盖当前书库？当前书库里不在备份中的书会被删除。建议先「立即备份」一次。`)
+  const ok = await dialog.confirm(`确定用「${bk.label}」覆盖当前书库？当前书库里不在备份中的书会被删除。建议先「立即备份」一次。`, '恢复云端备份')
   if (!ok) return
   await run('restore', async () => {
     const text = await downloadBackup(form.provider, c, bk.name)

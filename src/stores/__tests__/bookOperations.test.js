@@ -37,7 +37,6 @@ describe('书本章节操作（P1）', () => {
   it('最后一章不能向后合并', () => {
     const store = useBookStore()
     store.createBook()
-    const first = store.activeBook.chapters[0]
     store.addChapter()
     const last = store.activeBook.chapters[1]
     expect(store.mergeNextChapter(last.id)).toBeNull()

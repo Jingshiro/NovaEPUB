@@ -38,7 +38,7 @@ export const HtmlBlock = Node.create({
   },
 
   addNodeView() {
-    return ({ node, HTMLAttributes }) => {
+    return ({ node }) => {
       const container = document.createElement('div')
       container.classList.add('nova-html-block-view')
       container.setAttribute('contenteditable', 'false')

@@ -64,11 +64,13 @@ import { ref, computed, nextTick } from 'vue'
 import { useBookStore } from '../../stores/book'
 import { useEditorStore } from '../../stores/editor'
 import { useHistoryStore } from '../../stores/history'
+import { useDialogStore } from '../../stores/dialog'
 import { useLongPressDrag } from '../../composables/useLongPressDrag'
 
 const bookStore = useBookStore()
 const editorStore = useEditorStore()
 const historyStore = useHistoryStore()
+const dialog = useDialogStore()
 
 const chapters = computed(() => bookStore.activeBook?.chapters || [])
 const activeChapterId = computed(() => editorStore.activeChapterId)
@@ -113,8 +115,8 @@ function addChapter() {
   if (chapter) editorStore.setActiveChapter(chapter.id)
 }
 
-function remove(chapter) {
-  if (window.confirm(`删除章节「${chapter.title}」？`)) {
+async function remove(chapter) {
+  if (await dialog.confirm(`删除章节「${chapter.title}」？`)) {
     historyStore.capture('删除章节')
     bookStore.removeChapter(chapter.id)
     const next = bookStore.activeBook?.chapters?.[0]

@@ -71,6 +71,15 @@ describe('book store', () => {
     expect(countWords('')).toBe(0)
   })
 
+  it('countWords 中文按字计，英文按词计，标点空白不计', () => {
+    expect(countWords('<p>你好世界</p>')).toBe(4)
+    expect(countWords('<p>Hello world</p>')).toBe(2)
+    expect(countWords('<p>Hello,  world!</p>')).toBe(2)
+    expect(countWords('<p>你好 Hello 世界</p>')).toBe(5)
+    expect(countWords('<p>  </p>')).toBe(0)
+    expect(countWords("It's a test-case")).toBe(3)
+  })
+
   it('createBook 默认包含书内图库与样式快照数组', () => {
     const book = createBook()
     expect(Array.isArray(book.images)).toBe(true)

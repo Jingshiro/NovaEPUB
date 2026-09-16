@@ -63,8 +63,8 @@ describe('样式与内容', () => {
   })
 
   it('countWords 去除 HTML 标签统计字数', () => {
-    expect(countWords('<p>你好 世界</p>')).toBe(5)
-    expect(countWords('<h1>标题</h1><p>正文</p>')).toBe(5)
+    expect(countWords('<p>你好 世界</p>')).toBe(4)
+    expect(countWords('<h1>标题</h1><p>正文</p>')).toBe(4)
     expect(countWords('')).toBe(0)
   })
 

@@ -44,8 +44,6 @@ function collectCssResourceIds(css = '') {
 /** 找出正文里无法由导出器处理的本地相对引用（主要是 <img src> 与媒体 src）。 */
 function findUnresolvedLocalRefs(html = '', book) {
   const issues = []
-  const imageIds = new Set((book.images || []).map((img) => img.id))
-  const resourceIds = new Set((book.resources || []).map((res) => res.id))
   const imageFileNames = new Set((book.images || []).map((img) => img.filename))
   const resourceFileNames = new Set((book.resources || []).map((res) => res.filename))
   const coverMime = String(book.cover || '').match(/^data:([^;]+);/)?.[1] || ''
@@ -69,8 +67,7 @@ function findUnresolvedLocalRefs(html = '', book) {
 
   // 旧 dataURL 图片导出器能自动打包，但会新增未入库文件，提示用户尽量通过图库插入
   const dataImgRe = /<img[^>]+src="(data:image\/[^"]+)"/gi
-  let dm
-  while ((dm = dataImgRe.exec(html)) !== null) {
+  while (dataImgRe.exec(html) !== null) {
     issues.push(createIssue('warning', 'inline-data-image', '正文中存在未收编到书内图库的 dataURL 图片，导出时会自动打包但仍建议重新插入一次'))
   }
 

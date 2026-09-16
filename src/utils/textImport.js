@@ -188,7 +188,7 @@ export function isChapterTitle(line = '') {
   return CHAPTER_PATTERN.test(String(line).trim())
 }
 
-/** 整行只有 1~4 位数字（允许全角数字与前后全角/半角空白），如「　　1」「2」。 */
+/** 整行只有 1~4 位数字（允许全角数字与前后全角/半角空白）。 */
 const BARE_NUMBER_PATTERN = /^[\s\u3000]*[0-9０-９]{1,4}[\s\u3000]*$/
 
 /**

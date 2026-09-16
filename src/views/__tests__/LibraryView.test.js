@@ -38,7 +38,7 @@ describe('LibraryView', () => {
   it('点击书目可进入编辑器路由', async () => {
     const wrapper = mount(LibraryView, { global: { plugins: [pinia, router] } })
     const store = (await import('../../stores/book')).useBookStore()
-    const id = store.createBook()
+    store.createBook()
     await flushPromises()
     await wrapper.vm.$nextTick()
     const item = wrapper.findAll('aside .group').find((el) => el.text().includes('未命名书籍'))
