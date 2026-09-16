@@ -213,6 +213,7 @@ import { useBookStore } from '../stores/book'
 import { useTemplateStore } from '../stores/templates'
 import { useEpubParser } from '../hooks/useEpubParser'
 import { buildFullBackupText, buildFullBookBackupText, singleBookFileName, parseBackupBundle } from '../utils/backup'
+import { sanitizeImportedBook } from '../utils/sanitizeHtml'
 import BatchMetadataModal from '../components/library/BatchMetadataModal.vue'
 import SyncModal from '../components/library/SyncModal.vue'
 
@@ -367,7 +368,7 @@ async function onBackupChange(e) {
     const tplNote = templates.length ? `，以及 ${templates.length} 个全局模板` : ''
     if (!window.confirm(`备份包含 ${books.length} 本书${tplNote}。同 id 的书会被备份内容覆盖，确定导入？`)) return
     for (const book of books) {
-      const id = bookStore.importBook(book)
+      const id = bookStore.importBook(sanitizeImportedBook(book))
       await bookStore.hydrateBook(id)
     }
     const addedTpl = templateStore.importTemplates(templates)

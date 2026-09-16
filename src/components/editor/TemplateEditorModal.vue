@@ -95,10 +95,15 @@
           placeholder='<blockquote style="border-left:4px solid #E9E8E4;padding:0.6em 1em;">$1</blockquote>'></textarea>
       </div>
 
-      <!-- 实时预览 -->
+      <!-- 实时预览：sandbox iframe 隔离，模板里的脚本不会在宿主页面执行 -->
       <div>
         <p class="text-xs text-ink-placeholder mb-1">预览（选中内容将替换 $1）</p>
-        <div class="rounded-card border border-line bg-bg-card p-3" v-html="previewHtml"></div>
+        <iframe
+          class="h-24 w-full rounded-card border border-line bg-bg-card"
+          sandbox=""
+          :srcdoc="previewDoc"
+          title="模板预览"
+        ></iframe>
       </div>
     </div>
 
@@ -159,6 +164,15 @@ const currentHtml = computed(() => {
 const previewHtml = computed(() => {
   const sample = form.target === 'image' ? '示例图片文字' : '这是一段用于预览的示例文本'
   return wrapWithTemplate(currentHtml.value, `<span>${sample}</span>`)
+})
+
+/** 给 sandbox iframe 用的完整文档（无脚本权限）。 */
+const previewDoc = computed(() => {
+  const body = previewHtml.value
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    html,body{margin:0;padding:12px;font:14px/1.6 -apple-system,'PingFang SC','Microsoft YaHei',sans-serif;color:#37352f;background:#fff}
+    *{box-sizing:border-box}
+  </style></head><body>${body}</body></html>`
 })
 
 watch(

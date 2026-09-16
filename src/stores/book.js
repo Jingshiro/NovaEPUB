@@ -8,6 +8,7 @@ import { replaceAllInBook } from '../utils/search'
 import { mergeHtmlFragments } from '../utils/chapterOps'
 import { useTemplateStore } from './templates'
 import { hydrateBookAssets, flushBookAssets, leanBookClone, deleteBookAssets, purgeEntryBlobUrls } from '../utils/assetStore'
+import { useUiStore } from './ui'
 
 const DEFAULT_LANGUAGE = 'zh-CN'
 const DEFAULT_PUBLISH_DATE = new Date().toISOString().slice(0, 10)
@@ -142,7 +143,15 @@ export const useBookStore = defineStore('book', {
       for (const [id, book] of Object.entries(this.library)) {
         lean[id] = leanBookClone(book)
       }
-      saveLibrary(lean)
+      const ok = saveLibrary(lean)
+      if (!ok && !this._storageErrorNotified) {
+        this._storageErrorNotified = true
+        try {
+          useUiStore().setStorageError('本地存储空间不足或写入失败，书库修改可能不会被保存。请尽快「导出备份」，并删除不需要的书。')
+        } catch (err) {
+          console.warn('[book] 无法通知存储失败', err)
+        }
+      }
       // 同步写 localStorage 后，再防抖写一份到 IndexedDB，作为崩溃恢复兜底
       if (this.activeBook) scheduleDraftSave(leanBookClone(this.activeBook))
       this.scheduleAssetFlush()

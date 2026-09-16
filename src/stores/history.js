@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { useBookStore } from './book'
 import { useEditorStore } from './editor'
+import { useUiStore } from './ui'
 import { resolveContentImages } from '../utils/image'
 import { hydrateBookAssets, leanBookClone } from '../utils/assetStore'
 
@@ -13,6 +14,19 @@ function applyBookSnapshot(bookStore, snapshot) {
   for (const key of Object.keys(active)) delete active[key]
   Object.assign(active, snapshot)
   bookStore.persist()
+}
+
+/** 统计仍缺二进制载荷的资产条数（idb 标记但 dataUrl 为空）。 */
+function countMissingAssets(book) {
+  if (!book) return 0
+  let n = 0
+  for (const list of [book.images, book.resources]) {
+    for (const entry of list || []) {
+      if (entry && entry.idb === 1 && !entry.dataUrl) n += 1
+    }
+  }
+  if (book.coverIdb === 1 && !book.cover) n += 1
+  return n
 }
 
 /** 撤销/重做后刷新编辑器，避免显示旧章节或旧内容。 */
@@ -64,6 +78,13 @@ export const useHistoryStore = defineStore('history', {
       this.redoStack.push({ label: previous.label, book: current })
       applyBookSnapshot(bookStore, previous.book)
       await hydrateBookAssets(bookStore.activeBook)
+      const missing = countMissingAssets(bookStore.activeBook)
+      if (missing > 0) {
+        console.warn(`[history] 撤销后仍有 ${missing} 项资产未能从 IndexedDB 回填`)
+        try {
+          useUiStore().setStorageError(`撤销后有 ${missing} 项图片/资源未能恢复，本地资产库可能不完整。`)
+        } catch { /* 测试环境无 pinia 时忽略 */ }
+      }
       refreshEditor(bookStore)
       return true
     },
@@ -75,6 +96,13 @@ export const useHistoryStore = defineStore('history', {
       this.undoStack.push({ label: next.label, book: current })
       applyBookSnapshot(bookStore, next.book)
       await hydrateBookAssets(bookStore.activeBook)
+      const missing = countMissingAssets(bookStore.activeBook)
+      if (missing > 0) {
+        console.warn(`[history] 重做后仍有 ${missing} 项资产未能从 IndexedDB 回填`)
+        try {
+          useUiStore().setStorageError(`重做后有 ${missing} 项图片/资源未能恢复，本地资产库可能不完整。`)
+        } catch { /* 测试环境无 pinia 时忽略 */ }
+      }
       refreshEditor(bookStore)
       return true
     },

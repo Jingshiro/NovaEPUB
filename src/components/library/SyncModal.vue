@@ -74,6 +74,14 @@
       <!-- 状态行 -->
       <p v-if="status" class="text-xs" :class="statusOk ? 'text-ink-secondary' : 'text-danger'">{{ status }}</p>
 
+      <label class="flex items-start gap-2 text-xs text-ink-secondary">
+        <input v-model="form.rememberCredentials" type="checkbox" class="mt-0.5 accent-accent" />
+        <span>
+          记住密码 / 密钥（写入本机 localStorage）
+          <span class="block text-ink-placeholder mt-0.5">取消勾选则仅本次会话可用，刷新页面后需重新填写；共享电脑建议取消。</span>
+        </span>
+      </label>
+
       <div class="flex flex-wrap gap-2 border-t border-line pt-4">
         <button class="btn-secondary !px-3 !py-1.5 text-xs" :disabled="busy" @click="doTest">测试连接</button>
         <button class="btn-secondary !px-3 !py-1.5 text-xs" :disabled="busy" @click="doSave">保存配置</button>
@@ -111,6 +119,7 @@ import { useTemplateStore } from '../../stores/templates'
 import { testConnection, uploadBackup, listRemoteBackups, downloadBackup } from '../../utils/sync'
 import { loadSyncConfig, saveSyncConfig } from '../../utils/syncConfig'
 import { buildFullBackupText, parseBackupBundle } from '../../utils/backup'
+import { sanitizeImportedBook } from '../../utils/sanitizeHtml'
 
 const props = defineProps({ open: { type: Boolean, default: false } })
 const emit = defineEmits(['close'])
@@ -223,7 +232,7 @@ async function doRestore(bk) {
     const ids = bookStore.booksList.map((b) => b.id)
     for (const id of ids) bookStore.deleteBook(id)
     for (const book of books) {
-      bookStore.importBook(book)
+      bookStore.importBook(sanitizeImportedBook(book))
     }
     const addedTpl = templateStore.importTemplates(templates)
     templateStore.importBookTemplates(bookTemplates)

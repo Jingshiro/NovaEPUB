@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import { createBook, createChapter, countWords } from '../stores/book'
 import { compressImageDataUrl, createBookImage, mimeFromDataUrl } from './image'
 import { createBookResource } from './resource'
+import { sanitizeChapterHtml } from './sanitizeHtml'
 
 const NS = {
   container: 'urn:oasis:names:tc:opendocument:xmlns:container',
@@ -485,17 +486,10 @@ async function readChapterHtml(zip, manifest, spineId, opfPath, warnings = []) {
   return sanitizeXhtml(text)
 }
 
-/** 从 XHTML 中抽取 body 内容并去除脚本/样式，返回干净的 HTML 片段。
+/** 从 XHTML 中抽取 body 内容并做安全消毒，返回干净的 HTML 片段。
  *  使用 text/html 解析模式，兼容真实 EPUB 中不严格的 XHTML 与 HTML 实体。 */
 function sanitizeXhtml(html) {
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  const body = doc.body
-  let content = body ? body.innerHTML : html
-  // 去除脚本、样式、内联事件
-  const container = document.createElement('div')
-  container.innerHTML = content
-  container.querySelectorAll('script, style, [onclick], [onload], [onerror]').forEach((el) => el.remove())
-  return container.innerHTML
+  return sanitizeChapterHtml(html)
 }
 
 function textOf(doc, ns, localName) {

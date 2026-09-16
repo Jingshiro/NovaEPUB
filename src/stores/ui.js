@@ -12,6 +12,8 @@ export const useUiStore = defineStore('ui', {
       previewMode: false,
       theme: 'light', // MVP 仅明亮
       metadataModalOpen: false,
+      /** 本地存储写入失败提示（配额满等）；每次失败只展示一次 */
+      storageError: null,
     }
   },
   actions: {
@@ -32,6 +34,13 @@ export const useUiStore = defineStore('ui', {
     },
     closeMetadataModal() {
       this.metadataModalOpen = false
+    },
+    /** 记录一次本地存储写入失败（UI 层弹一次后调用 clearStorageError）。 */
+    setStorageError(message) {
+      this.storageError = message || '本地存储写入失败，修改可能不会被保存'
+    },
+    clearStorageError() {
+      this.storageError = null
     },
   },
 })
