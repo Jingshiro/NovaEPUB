@@ -1,6 +1,6 @@
 <template>
   <div class="relative flex h-full flex-col">
-    <div class="flex items-center justify-between px-4 py-3">
+    <div class="flex items-center justify-between px-4 py-3 lg:pr-4 max-lg:pr-12">
       <h2 class="text-sm font-medium text-ink">目录</h2>
       <div class="flex items-center gap-2">
         <button
@@ -31,7 +31,7 @@
           dragging && overIndex === index && dragIndex !== index ? 'chapter-drop-target' : '',
         ]"
         @click="onRowClick(chapter, index, $event)"
-        @dragstart="onDragStart(index)"
+        @dragstart="onDragStart(index, $event)"
         @dragover.prevent
         @drop.prevent="onDrop(index)"
         @dragend="onDragEnd"
@@ -72,11 +72,19 @@
           移动端没有 hover，等于这些按钮在手机上根本不可见、无法使用。
           多选模式下隐藏，改走底部批量条。
         -->
-        <div v-if="!selecting" class="chapter-actions flex shrink-0 items-center gap-0.5">
-          <button class="tree-btn" title="上移" aria-label="上移章节" :disabled="index === 0" @click.stop="move(chapter.id, -1)">↑</button>
-          <button class="tree-btn" title="下移" aria-label="下移章节" :disabled="index === chapters.length - 1" @click.stop="move(chapter.id, 1)">↓</button>
-          <button class="tree-btn" title="重命名" aria-label="重命名章节" @click.stop="startRename(chapter)">✎</button>
-          <button class="tree-btn tree-btn-danger" title="删除" aria-label="删除章节" @click.stop="remove(chapter)">✕</button>
+        <div v-if="!selecting" class="chapter-actions flex shrink-0 items-center">
+          <button class="tree-btn" title="上移" aria-label="上移章节" :disabled="index === 0" @click.stop="move(chapter.id, -1)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5m0 0-6 6m6-6 6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="tree-btn" title="下移" aria-label="下移章节" :disabled="index === chapters.length - 1" @click.stop="move(chapter.id, 1)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14m0 0 6-6m-6 6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="tree-btn" title="重命名" aria-label="重命名章节" @click.stop="startRename(chapter)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="tree-btn tree-btn-danger" title="删除" aria-label="删除章节" @click.stop="remove(chapter)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V5h6v2m-8 0 1 13h8l1-13" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -84,28 +92,40 @@
     <!-- 多选底部操作条 -->
     <div
       v-if="selecting"
-      class="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 border-t border-line bg-bg-card px-3 py-2 shadow-card"
+      class="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-1.5 border-t border-line bg-bg-card px-3 py-2 shadow-card"
     >
-      <span class="text-xs text-ink">已选 {{ selectedIds.length }}</span>
-      <span class="text-[10px] text-ink-placeholder">长按已选章可整组拖动</span>
+      <span class="text-xs text-ink shrink-0">已选 {{ selectedIds.length }}</span>
+      <span class="hidden md:inline text-[10px] text-ink-placeholder truncate">可拖动或按 ↑↓</span>
       <button
-        class="text-xs text-ink-secondary hover:text-ink"
+        class="text-xs text-ink-secondary hover:text-ink shrink-0"
         :disabled="!chapters.length"
         @click="selectAll"
       >{{ selectedIds.length >= chapters.length ? '全不选' : '全选' }}</button>
       <div class="flex-1"></div>
       <button
-        class="btn-secondary !px-2.5 !py-1 text-xs !text-danger"
+        class="btn-secondary !px-2 !py-1 text-xs shrink-0"
+        title="整组上移"
+        :disabled="!selectedIds.length"
+        @click="moveSelectedBy(-1)"
+      >↑</button>
+      <button
+        class="btn-secondary !px-2 !py-1 text-xs shrink-0"
+        title="整组下移"
+        :disabled="!selectedIds.length"
+        @click="moveSelectedBy(1)"
+      >↓</button>
+      <button
+        class="btn-secondary !px-2 !py-1 text-xs !text-danger shrink-0"
         :disabled="!selectedIds.length"
         @click="batchRemove"
       >删除</button>
-      <button class="btn-secondary !px-2.5 !py-1 text-xs" @click="toggleSelectMode">完成</button>
+      <button class="btn-secondary !px-2 !py-1 text-xs shrink-0" @click="toggleSelectMode">完成</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useBookStore } from '../../stores/book'
 import { useEditorStore } from '../../stores/editor'
 import { useHistoryStore } from '../../stores/history'
@@ -256,9 +276,18 @@ function move(id, dir) {
   bookStore.moveChapter(id, dir)
 }
 
-function onDragStart(index) {
+function onDragStart(index, event) {
   dragging.value = true
   dragIndex.value = index
+  // 部分浏览器（Firefox 等）不 setData 就不进入拖拽态
+  if (event?.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    try {
+      event.dataTransfer.setData('text/plain', String(index))
+    } catch {
+      /* 某些环境禁止 setData，忽略 */
+    }
+  }
 }
 
 function onDragEnd() {
@@ -272,6 +301,51 @@ function onDrop(index) {
   if (from === null || from === index) return
   applyReorder(from, index)
 }
+
+/** 多选时：↑/↓ 把选中章整组上移/下移一格（桌面无触屏长按时用键盘）。 */
+function moveSelectedBy(dir) {
+  if (!selecting.value || !selectedIds.value.length) return
+  const list = chapters.value
+  const ordered = list.filter((c) => selectedSet.value.has(c.id)).map((c) => c.id)
+  if (!ordered.length) return
+  const indices = []
+  list.forEach((c, i) => {
+    if (selectedSet.value.has(c.id)) indices.push(i)
+  })
+  const first = indices[0]
+  const last = indices[indices.length - 1]
+  if (dir < 0) {
+    if (first <= 0) return
+    historyStore.capture('批量调整章节顺序')
+    bookStore.reorderChapters(ordered, first - 1)
+  } else {
+    if (last >= list.length - 1) return
+    // insert-before 语义：下移一格 = 插到「组后第二章」之前（即 last+2）
+    historyStore.capture('批量调整章节顺序')
+    bookStore.reorderChapters(ordered, last + 2)
+  }
+}
+
+function onKeydown(e) {
+  if (!selecting.value) return
+  // 焦点在输入框时不劫持
+  const tag = e.target?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    moveSelectedBy(-1)
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    moveSelectedBy(1)
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
 
 function startRename(chapter) {
   editingId.value = chapter.id
@@ -306,7 +380,7 @@ function cancelRename() {
 }
 
 .tree-btn {
-  @apply flex h-5 w-5 items-center justify-center rounded text-xs text-ink-placeholder hover:bg-bg-muted hover:text-ink transition-colors;
+  @apply flex h-7 w-7 items-center justify-center rounded text-ink-placeholder hover:bg-bg-muted hover:text-ink transition-colors;
 }
 
 /* 删除按钮给一点危险色提示，避免和重命名误触 */
@@ -318,16 +392,16 @@ function cancelRename() {
   @apply flex items-center justify-center rounded text-ink-secondary hover:text-accent transition-colors;
 }
 
-/* 触控设备上把操作按钮放大到约 44×44 的可点区域（图标视觉尺寸基本不变） */
+/*
+ * 触控：可点区域约 36×36（比标准 44 略紧，四键并排才不会把标题挤没）。
+ * 桌面保持小图标，标题优先。
+ */
 @media (pointer: coarse) {
   .tree-btn {
-    @apply h-11 w-11 text-base;
+    @apply h-9 w-9;
   }
   .tree-add-btn {
     @apply p-2;
-  }
-  .chapter-actions {
-    @apply gap-1;
   }
 }
 

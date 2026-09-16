@@ -84,7 +84,7 @@
       />
       <aside
         v-show="!uiStore.sidebarCollapsed"
-        class="w-60 shrink-0 border-r border-line bg-bg-muted max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:w-[min(100%,22rem)] max-lg:shadow-card"
+        class="w-60 shrink-0 border-r border-line bg-bg-muted max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-30 max-lg:w-full max-lg:border-r-0 max-lg:shadow-card"
       >
         <!-- 窄屏全宽浮层：给关闭按钮，目录/标题/操作键才有地方放 -->
         <button
