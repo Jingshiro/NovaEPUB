@@ -2,7 +2,7 @@
   <div class="flex h-full flex-col">
     <div class="flex items-center justify-between px-4 py-3">
       <h2 class="text-sm font-medium text-ink">目录</h2>
-      <button class="text-ink-secondary hover:text-accent transition-colors" title="新增章节" @click="addChapter">
+      <button class="tree-add-btn" title="新增章节" aria-label="新增章节" @click="addChapter">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M12 5v14M5 12h14" stroke-linecap="round"/>
         </svg>
@@ -17,12 +17,17 @@
         :class="[
           chapter.id === activeChapterId ? 'bg-accent/10 text-accent' : 'hover:bg-bg-card',
           dragIndex === index ? 'opacity-50' : '',
+          dragging && overIndex === index && dragIndex !== index ? 'chapter-drop-target' : '',
         ]"
         @click="select(chapter.id)"
         @dragstart="onDragStart(index)"
         @dragover.prevent
         @drop.prevent="onDrop(index)"
-        @dragend="dragIndex = null"
+        @dragend="onDragEnd"
+        @touchstart="onTouchStart(index, $event, $event.currentTarget)"
+        @touchmove="onTouchMove($event)"
+        @touchend="onTouchEnd"
+        @touchcancel="onTouchEnd"
       >
         <span class="w-5 shrink-0 text-xs text-ink-placeholder">{{ index + 1 }}</span>
         <template v-if="editingId === chapter.id">
@@ -39,11 +44,15 @@
           {{ chapter.title }}
         </span>
 
-        <div class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button class="tree-btn" title="上移" :disabled="index === 0" @click.stop="move(chapter.id, -1)">↑</button>
-          <button class="tree-btn" title="下移" :disabled="index === chapters.length - 1" @click.stop="move(chapter.id, 1)">↓</button>
-          <button class="tree-btn hover:!text-danger" title="重命名" @click.stop="startRename(chapter)">✎</button>
-          <button class="tree-btn hover:!text-danger" title="删除" @click.stop="remove(chapter)">✕</button>
+        <!--
+          操作按钮常驻显示：原先用 opacity-0 + group-hover，只在鼠标悬浮时才出现。
+          移动端没有 hover，等于这些按钮在手机上根本不可见、无法使用。
+        -->
+        <div class="chapter-actions flex shrink-0 items-center gap-0.5">
+          <button class="tree-btn" title="上移" aria-label="上移章节" :disabled="index === 0" @click.stop="move(chapter.id, -1)">↑</button>
+          <button class="tree-btn" title="下移" aria-label="下移章节" :disabled="index === chapters.length - 1" @click.stop="move(chapter.id, 1)">↓</button>
+          <button class="tree-btn" title="重命名" aria-label="重命名章节" @click.stop="startRename(chapter)">✎</button>
+          <button class="tree-btn tree-btn-danger" title="删除" aria-label="删除章节" @click.stop="remove(chapter)">✕</button>
         </div>
       </div>
     </div>
@@ -55,6 +64,7 @@ import { ref, computed, nextTick } from 'vue'
 import { useBookStore } from '../../stores/book'
 import { useEditorStore } from '../../stores/editor'
 import { useHistoryStore } from '../../stores/history'
+import { useLongPressDrag } from '../../composables/useLongPressDrag'
 
 const bookStore = useBookStore()
 const editorStore = useEditorStore()
@@ -66,9 +76,34 @@ const activeChapterId = computed(() => editorStore.activeChapterId)
 const editingId = ref(null)
 const editingTitle = ref('')
 const editingInput = ref(null)
-const dragIndex = ref(null)
+
+// 触摸端长按拖拽（iOS Safari 不支持 HTML5 拖放，必须自己实现）。
+// 桌面端仍走原生 draggable 那一套，两者共用 applyReorder。
+const {
+  dragging,
+  dragIndex,
+  overIndex,
+  start: onTouchStart,
+  move: onTouchMove,
+  end: onTouchEnd,
+  suppressClick,
+} = useLongPressDrag({
+  getItemCount: () => chapters.value.length,
+  onDrop: (from, to) => applyReorder(from, to),
+})
+
+/** 触摸拖拽与 HTML5 拖拽共用的排序提交。 */
+function applyReorder(from, to) {
+  if (from === to) return
+  const id = chapters.value[from]?.id
+  if (!id) return
+  historyStore.capture('拖拽排序章节')
+  bookStore.reorderChapter(id, to)
+}
 
 function select(id) {
+  // 长按拖拽结束后浏览器会补一个 click，吞掉它，避免拖完排序后误跳章节
+  if (suppressClick()) return
   editorStore.setActiveChapter(id)
 }
 
@@ -93,16 +128,20 @@ function move(id, dir) {
 }
 
 function onDragStart(index) {
+  dragging.value = true
   dragIndex.value = index
+}
+
+function onDragEnd() {
+  dragIndex.value = null
+  dragging.value = false
 }
 
 function onDrop(index) {
   const from = dragIndex.value
-  dragIndex.value = null
+  onDragEnd()
   if (from === null || from === index) return
-  historyStore.capture('拖拽排序章节')
-  const id = chapters.value[from]?.id
-  if (id) bookStore.reorderChapter(id, index)
+  applyReorder(from, index)
 }
 
 function startRename(chapter) {
@@ -127,5 +166,32 @@ function cancelRename() {
 <style scoped>
 .tree-btn {
   @apply flex h-5 w-5 items-center justify-center rounded text-xs text-ink-placeholder hover:bg-bg-muted hover:text-ink transition-colors;
+}
+
+/* 删除按钮给一点危险色提示，避免和重命名误触 */
+.tree-btn-danger {
+  @apply hover:text-danger;
+}
+
+.tree-add-btn {
+  @apply flex items-center justify-center rounded text-ink-secondary hover:text-accent transition-colors;
+}
+
+/* 触控设备上把操作按钮放大到约 44×44 的可点区域（图标视觉尺寸基本不变） */
+@media (pointer: coarse) {
+  .tree-btn {
+    @apply h-11 w-11 text-base;
+  }
+  .tree-add-btn {
+    @apply p-2;
+  }
+  .chapter-actions {
+    @apply gap-1;
+  }
+}
+
+/* 拖拽落点提示线 */
+.chapter-drop-target {
+  box-shadow: inset 0 -2px 0 0 theme('colors.accent.DEFAULT');
 }
 </style>

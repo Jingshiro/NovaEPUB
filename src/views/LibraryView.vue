@@ -68,11 +68,12 @@
             <p class="truncate text-sm text-ink">{{ book.title }}</p>
             <p class="truncate text-xs text-ink-secondary">{{ book.author }}</p>
           </div>
-          <div class="flex shrink-0 items-center gap-1">
+          <div class="book-actions flex shrink-0 items-center gap-1">
             <button
               v-if="!selecting"
-              class="opacity-0 group-hover:opacity-100 text-ink-placeholder hover:text-accent transition-opacity"
+              class="book-action-btn hover:text-accent"
               title="导出这本书（.novaepub 工程文件）"
+              aria-label="导出这本书"
               @click.stop="exportBookFile(book)"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -81,8 +82,9 @@
             </button>
             <button
               v-if="!selecting"
-              class="opacity-0 group-hover:opacity-100 text-ink-placeholder hover:text-danger transition-opacity"
+              class="book-action-btn hover:text-danger"
               title="删除"
+              aria-label="删除这本书"
               @click.stop="confirmDelete(book)"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -377,3 +379,24 @@ async function onBackupChange(e) {
   }
 }
 </script>
+
+<style scoped>
+/*
+ * 书架操作按钮常驻显示。
+ * 原先用 opacity-0 + group-hover，鼠标悬浮才出现；移动端没有 hover，
+ * 这些按钮在手机上等于完全不可见。
+ */
+.book-action-btn {
+  @apply flex items-center justify-center text-ink-placeholder transition-colors;
+}
+
+/* 触控设备上放大可点区域（约 40×40） */
+@media (pointer: coarse) {
+  .book-action-btn {
+    @apply h-10 w-10;
+  }
+  .book-actions {
+    @apply gap-0.5;
+  }
+}
+</style>

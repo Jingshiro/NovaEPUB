@@ -49,9 +49,10 @@
       >
         <span class="rounded-md bg-bg-muted px-1.5 py-0.5 text-xs text-ink-secondary shrink-0">{{ label(tpl.target) }}</span>
         <span class="min-w-0 flex-1 truncate text-sm text-ink">{{ tpl.name }}</span>
-        <div class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button class="tree-btn" title="编辑" @click.stop="edit(tpl)">✎</button>
-          <button class="tree-btn hover:!text-danger" title="删除" @click.stop="remove(tpl)">✕</button>
+        <!-- 常驻显示：移动端没有 hover，悬浮才出现的按钮等于不可见 -->
+        <div class="template-actions flex shrink-0 items-center gap-0.5">
+          <button class="tree-btn" title="编辑" aria-label="编辑模板" @click.stop="edit(tpl)">✎</button>
+          <button class="tree-btn tree-btn-danger" title="删除" aria-label="删除模板" @click.stop="remove(tpl)">✕</button>
         </div>
       </div>
       <div v-if="visibleTemplates.length === 0 && scope === 'global'" class="px-3 py-6 text-center text-xs text-ink-placeholder">
@@ -127,5 +128,19 @@ function resetBook() {
 <style scoped>
 .tree-btn {
   @apply flex h-5 w-5 items-center justify-center rounded text-xs text-ink-placeholder hover:bg-bg-muted hover:text-ink transition-colors;
+}
+
+.tree-btn-danger {
+  @apply hover:text-danger;
+}
+
+/* 触控设备上放大可点区域（约 44×44） */
+@media (pointer: coarse) {
+  .tree-btn {
+    @apply h-11 w-11 text-base;
+  }
+  .template-actions {
+    @apply gap-1;
+  }
 }
 </style>

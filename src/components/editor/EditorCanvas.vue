@@ -1,14 +1,14 @@
 <template>
   <div
     ref="editorContainer"
-    class="relative flex h-full flex-col select-none"
+    class="novaepub-canvas relative flex h-full flex-col"
     @contextmenu="onContextMenu"
     @touchstart="onTouchStart"
     @touchmove.passive="onTouchMove"
     @touchend="onTouchEnd"
     @touchcancel="onTouchEnd"
   >
-    <div class="mb-3 shrink-0">
+    <div class="mb-3 shrink-0 select-none">
       <EditorMenuBar :editor="editorStore.editor" @split-chapter="splitCurrentChapter" @merge-chapter="mergeCurrentChapter" />
     </div>
 
@@ -404,6 +404,28 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
+/*
+ * 编辑区必须显式声明「可选中」。
+ *
+ * 背景：外层容器曾经用 select-none（user-select: none）。该属性会被继承，
+ * 一路盖到 contenteditable="true" 的 .ProseMirror 上。iOS Safari 对可编辑区
+ * 被标记为不可选中极其敏感——点上去落不下光标、拖选失灵；桌面端与 Android
+ * 容忍度高，因此表现为「只有 iPhone 用户反馈编辑区点不进去」。
+ *
+ * 现在改为：容器不再 select-none（工具栏单独 select-none），并在编辑区显式
+ * 打开 user-select:text，避免任何祖先样式再次把它关掉。
+ */
+.novaepub-editor-scope,
+.novaepub-editor-scope .ProseMirror {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* iOS 点击时的灰色高亮块会干扰落光标的观感，编辑区去掉 */
+.novaepub-editor-scope .ProseMirror {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .prose {
   font-size: 1rem;
   line-height: 1.8;
