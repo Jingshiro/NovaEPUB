@@ -41,6 +41,7 @@ export function useLongPressDrag({ onDrop, getItemCount, holdMs = 350 } = {}) {
   /** 行高与列表顶部，用于把手指 Y 坐标换算成索引（拖拽开始时测量一次） */
   let itemHeight = 0
   let listTop = 0
+  let listScrollTop = 0
   /** 长按触发过拖拽后，抑制随后的 click（否则会顺带选中章节） */
   let clickSuppressed = false
 
@@ -64,17 +65,18 @@ export function useLongPressDrag({ onDrop, getItemCount, holdMs = 350 } = {}) {
     if (!listEl) return
     const rect = listEl.getBoundingClientRect()
     listTop = rect.top
+    listScrollTop = listEl.scrollTop || 0
     const rowRect = el.getBoundingClientRect()
     const count = Math.max(1, getItemCount?.() || 1)
     itemHeight = rowRect.height > 0 ? rowRect.height : rect.height / count
   }
 
-  /** 手指 Y 坐标 → 目标索引（相对列表顶部，按行高换算，夹在合法范围内）。 */
+  /** 手指 Y 坐标 → 目标索引（相对列表可视区 + 滚动偏移，按行高换算）。 */
   function indexFromY(clientY) {
     const count = getItemCount?.() || 0
     if (count <= 0) return null
     if (!itemHeight) return dragIndex.value
-    const raw = Math.floor((clientY - listTop) / itemHeight)
+    const raw = Math.floor((clientY - listTop + listScrollTop) / itemHeight)
     return Math.min(Math.max(raw, 0), count - 1)
   }
 
@@ -97,6 +99,7 @@ export function useLongPressDrag({ onDrop, getItemCount, holdMs = 350 } = {}) {
     overIndex.value = null
     startPoint = null
     itemHeight = 0
+    listScrollTop = 0
     if (typeof document !== 'undefined') {
       document.body.style.overscrollBehavior = ''
       document.body.style.touchAction = ''

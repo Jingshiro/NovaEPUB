@@ -21,13 +21,13 @@
       <div
         v-for="(chapter, index) in chapters"
         :key="chapter.id"
-        :draggable="!editingId || editingId !== chapter.id"
-        class="group flex items-center gap-2 rounded-card px-2 py-1.5 cursor-pointer transition-colors"
+        :draggable="canHtmlDrag && editingId !== chapter.id"
+        class="chapter-row group flex items-center gap-2 rounded-card px-2 py-1.5 cursor-pointer transition-colors"
         :class="[
           selecting
             ? (selectedSet.has(chapter.id) ? 'bg-accent/10' : 'hover:bg-bg-card')
             : (chapter.id === activeChapterId ? 'bg-accent/10 text-accent' : 'hover:bg-bg-card'),
-          dragIndex === index ? 'opacity-50' : '',
+          dragging && dragIndex === index ? 'opacity-50 ring-1 ring-accent' : '',
           dragging && overIndex === index && dragIndex !== index ? 'chapter-drop-target' : '',
         ]"
         @click="onRowClick(chapter, index, $event)"
@@ -87,6 +87,7 @@
       class="absolute bottom-0 left-0 right-0 z-10 flex items-center gap-2 border-t border-line bg-bg-card px-3 py-2 shadow-card"
     >
       <span class="text-xs text-ink">已选 {{ selectedIds.length }}</span>
+      <span class="text-[10px] text-ink-placeholder">长按已选章可整组拖动</span>
       <button
         class="text-xs text-ink-secondary hover:text-ink"
         :disabled="!chapters.length"
@@ -122,6 +123,13 @@ const activeChapterId = computed(() => editorStore.activeChapterId)
 const editingId = ref(null)
 const editingTitle = ref('')
 const editingInput = ref(null)
+
+/** 触屏设备关掉 HTML5 draggable，避免系统原生长按拖拽抢走 touch 流（多选下尤其明显）。 */
+const canHtmlDrag = !(
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(pointer: coarse)').matches
+)
 
 // ---- 多选 ----
 const selecting = ref(false)
@@ -198,10 +206,17 @@ function applyReorder(from, to) {
   if (from === to) return
   const draggedId = chapters.value[from]?.id
   if (!draggedId) return
-  const dragGroup =
-    selecting.value && selectedSet.value.has(draggedId)
-      ? chapters.value.filter((c) => selectedSet.value.has(c.id)).map((c) => c.id)
-      : [draggedId]
+  let dragGroup
+  if (selecting.value) {
+    // 拖未选行时并进选择集，避免「长按拖了却整组都不动」
+    if (!selectedSet.value.has(draggedId)) {
+      selectedIds.value = [...selectedIds.value, draggedId]
+    }
+    dragGroup = chapters.value.filter((c) => selectedSet.value.has(c.id)).map((c) => c.id)
+  } else {
+    dragGroup = [draggedId]
+  }
+  if (!dragGroup.length) return
   historyStore.capture(dragGroup.length > 1 ? '批量调整章节顺序' : '拖拽排序章节')
   if (dragGroup.length === 1) {
     bookStore.reorderChapter(dragGroup[0], to)
@@ -276,6 +291,18 @@ function cancelRename() {
 </script>
 
 <style scoped>
+/*
+ * 章节行必须禁用文本选择：多选模式下行内几乎全是标题文字，
+ * iOS/Android 长按会先触发系统选词/选单，touch 流被掐断，
+ * 我们的长按拖拽（useLongPressDrag）就再也收不到 move/end。
+ */
+.chapter-row {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: pan-y;
+}
+
 .tree-btn {
   @apply flex h-5 w-5 items-center justify-center rounded text-xs text-ink-placeholder hover:bg-bg-muted hover:text-ink transition-colors;
 }
