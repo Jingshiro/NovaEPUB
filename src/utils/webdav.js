@@ -28,18 +28,48 @@ export function davUrl(cfg, segments = []) {
   return path ? `${base}/${path}` : base
 }
 
-/** 主函数级错误包装：给用户友好一点的报错。 */
+/** 部署后可打开的 CORS 说明文档（public/docs/s3-cors.md）。 */
+export const CORS_DOC_PATH = 'docs/s3-cors.md'
+
+/**
+ * 浏览器 fetch 在 CORS/网络层失败时通常只抛 TypeError("Failed to fetch")。
+ * 转成用户能看懂的说明，并标记 corsLikely 供 UI 挂文档链接。
+ */
+export function explainNetworkError(err, context = 'WebDAV') {
+  const raw = String(err?.message || err || '')
+  const looksLikeNetwork =
+    err instanceof TypeError ||
+    /failed to fetch|networkerror|load failed|network request failed|cors|blocked/i.test(raw)
+  if (!looksLikeNetwork) {
+    return err instanceof Error ? err : new Error(raw || String(err))
+  }
+  const base =
+    context === 'S3'
+      ? '无法连接存储（多半是跨域 CORS 被拒，或 Endpoint/网络不通）。请在桶设置里允许本站跨域，或换网络重试。'
+      : '无法连接 WebDAV（多半是跨域 CORS 被拒，或网络不通）。该网盘可能不允许浏览器直接访问；可换支持跨域的 WebDAV，或改用 S3 兼容存储。'
+  const e = new Error(`${base} 详细步骤见「S3 跨域配置说明」。`)
+  e.corsLikely = true
+  e.docPath = CORS_DOC_PATH
+  e.cause = err
+  return e
+}
+
+/** 主函数级错误包装：网络/CORS 失败给出可读说明。 */
 async function davRequest(cfg, method, url, { body = '', headers = {} } = {}, fetchImpl = fetch) {
-  const res = await fetchImpl(url, {
-    method,
-    headers: {
-      Authorization: encodeBasicAuth(cfg.username || '', cfg.password || ''),
-      ...headers,
-      ...(body ? { 'Content-Type': 'application/json; charset=utf-8' } : {}),
-    },
-    body: body || undefined,
-  })
-  return res
+  try {
+    const res = await fetchImpl(url, {
+      method,
+      headers: {
+        Authorization: encodeBasicAuth(cfg.username || '', cfg.password || ''),
+        ...headers,
+        ...(body ? { 'Content-Type': 'application/json; charset=utf-8' } : {}),
+      },
+      body: body || undefined,
+    })
+    return res
+  } catch (err) {
+    throw explainNetworkError(err, 'WebDAV')
+  }
 }
 
 /** 测试连接：PROPFIND Depth 0。207/200 都算成功。 */

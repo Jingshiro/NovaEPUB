@@ -12,6 +12,8 @@
  * }
  */
 
+import { explainNetworkError } from './webdav'
+
 const encoder = new TextEncoder()
 
 function toBytes(data) {
@@ -157,8 +159,12 @@ async function s3Request(cfg, method, key, query, body = '', extraHeaders = {}, 
     { method, endpoint: cfg.endpoint, bucket: cfg.bucket, region: cfg.region, accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey, key, query, body },
     new Date(),
   )
-  const res = await fetchImpl(signed.url, { method, headers: { ...signed.headers, ...extraHeaders }, body: body || undefined })
-  return res
+  try {
+    const res = await fetchImpl(signed.url, { method, headers: { ...signed.headers, ...extraHeaders }, body: body || undefined })
+    return res
+  } catch (err) {
+    throw explainNetworkError(err, 'S3')
+  }
 }
 
 function s3Folder(cfg) {

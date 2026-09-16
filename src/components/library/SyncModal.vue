@@ -72,7 +72,24 @@
       </div>
 
       <!-- 状态行 -->
-      <p v-if="status" class="text-xs" :class="statusOk ? 'text-ink-secondary' : 'text-danger'">{{ status }}</p>
+      <p v-if="status" class="text-xs" :class="statusOk ? 'text-ink-secondary' : 'text-danger'">
+        {{ status }}
+        <a
+          v-if="showCorsHelp"
+          :href="corsDocHref"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="ml-1 font-medium underline text-danger"
+        >查看「S3 跨域配置说明」</a>
+      </p>
+      <p v-if="form.provider === 's3'" class="text-xs text-ink-placeholder">
+        网页直连你的存储桶；若报跨域错误，需在桶的 CORS 设置里允许本站 origin。
+        <a :href="corsDocHref" target="_blank" rel="noopener noreferrer" class="underline">配置说明</a>
+      </p>
+      <p v-else class="text-xs text-ink-placeholder">
+        浏览器直连 WebDAV；若服务端未开放跨域会被拦截，可换网盘或改用 S3。
+        <a :href="corsDocHref" target="_blank" rel="noopener noreferrer" class="underline">说明</a>
+      </p>
 
       <label class="flex items-start gap-2 text-xs text-ink-secondary">
         <input v-model="form.rememberCredentials" type="checkbox" class="mt-0.5 accent-accent" />
@@ -132,8 +149,12 @@ const busy = ref(false)
 const mode = ref('')
 const status = ref('')
 const statusOk = ref(false)
+const showCorsHelp = ref(false)
 const remoteBackups = ref([])
 const listLoaded = ref(false)
+
+/** public/docs/s3-cors.md，随 Vite base 一起解析 */
+const corsDocHref = `${import.meta.env.BASE_URL || '/'}docs/s3-cors.md`
 
 const form = reactive(loadSyncConfig())
 
@@ -155,6 +176,7 @@ async function run(modeName, fn) {
   busy.value = true
   mode.value = modeName
   status.value = ''
+  showCorsHelp.value = false
   try {
     const msg = await fn()
     if (msg) {
@@ -165,6 +187,7 @@ async function run(modeName, fn) {
   } catch (err) {
     status.value = err.message || String(err)
     statusOk.value = false
+    showCorsHelp.value = !!(err.corsLikely || /跨域|CORS/i.test(status.value))
     console.warn('[sync]', err)
     return null
   } finally {
